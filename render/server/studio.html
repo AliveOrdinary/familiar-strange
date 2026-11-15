@@ -69,7 +69,8 @@ function reelCard(r, jobs) {
       <div class="extra">${b.headline ? `Headline: ${esc(b.headline.join(' / '))} · ` : ''}${esc(pieceNames(b))}${(b.labels || []).length ? ' · Labels: ' + esc(b.labels.map((l) => l.text).join(', ')) : ''}${b.cite ? ' · ' + esc(b.cite) : ''}</div></div>`).join('')
   const waiting = (r.assets || []).filter((a) => a.status !== 'approved')
   const assets = (r.assets || []).length ? `<div class="assets">${r.assets.map((a) => `<span class="${a.status}" title="${esc(a.error || '')}">${a.kind === 'clip' ? '🎞 ' : ''}${esc(a.name)}: ${a.status}</span>`).join('')}</div>` : ''
-  const sources = (r.script?.sources || []).length ? `<details><summary>Sources Claude used (${r.script.sources.length})</summary><ul>${r.script.sources.map((s) => `<li>${esc(s.claim)}: <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a></li>`).join('')}</ul></details>` : ''
+  const srcList = Array.isArray(r.script?.sources) ? r.script.sources : []
+  const sources = srcList.length ? `<details><summary>Sources Claude used (${srcList.length})</summary><ul>${srcList.map((s) => `<li>${esc(s.claim)}: <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a></li>`).join('')}</ul></details>` : ''
   const caption = r.caption ? `<details><summary>Instagram caption</summary><p>${esc(r.caption)}</p></details>` : ''
   let actions = ''
   if (review) actions = `<div class="row"><button data-a="approve-script">Approve script</button><button class="ghost" data-a="edit">Save my edits</button><button class="ghost" data-a="reject">Drop this reel</button></div>
@@ -94,9 +95,10 @@ async function load() {
   if (typing) return
   const d = await fetch('/studio.json').then((r) => r.json())
   const live = (d.reels || []).filter((r) => !['rejected', 'published', 'approved'].includes(r.status))
-  $('#reels').innerHTML = live.map((r) => reelCard(r, d.jobs || {})).join('') || '<p class="note">Nothing in progress. Pick questions below, then "Write the next question".</p>'
+  const safe = (fn, x) => { try { return fn(x) } catch (e) { console.error(e); return `<div class="card"><p class="note err">This entry could not be shown: ${esc(e.message)}</p></div>` } }
+  $('#reels').innerHTML = live.map((r) => safe((x) => reelCard(x, d.jobs || {}), r)).join('') || '<p class="note">Nothing in progress. Pick questions below, then "Write the next question".</p>'
   const queued = d.bank.filter((q) => q.status === 'approved'), rest = d.bank.filter((q) => q.status !== 'approved')
-  $('#bank').innerHTML = [...queued, ...rest].map(bankRow).join('') || '<p class="note" style="padding-top:12px">The bank is empty. "Find new questions" asks Claude to research about ten.</p>'
+  $('#bank').innerHTML = [...queued, ...rest].map((q) => safe(bankRow, q)).join('') || '<p class="note" style="padding-top:12px">The bank is empty. "Find new questions" asks Claude to research about ten.</p>'
   const refilling = d.jobs?.refill?.state === 'running'
   $('#refill').disabled = refilling; $('#refill').textContent = refilling ? 'Researching… (a few minutes)' : 'Find new questions'
   if (d.jobs?.refill?.state === 'error') flash('Finding questions failed: ' + d.jobs.refill.message, true)
@@ -123,5 +125,6 @@ document.addEventListener('click', async (e) => {
 $('#draft').addEventListener('click', async () => { try { await post('/reels/draft'); flash('Claude is researching and writing; this takes a minute or two.'); load() } catch (e) { flash(e.message, true) } })
 $('#refill').addEventListener('click', async () => { try { await post('/bank/refill'); flash('Claude is researching new questions; this takes a few minutes.'); load() } catch (e) { flash(e.message, true) } })
 $('#add').addEventListener('submit', async (e) => { e.preventDefault(); try { await post('/bank', Object.fromEntries(new FormData(e.target))); e.target.reset(); load() } catch (err) { flash(err.message, true) } })
-load(); setInterval(load, 5000)
+const tick = () => load().catch((e) => flash('The page could not load its data: ' + e.message, true))
+tick(); setInterval(tick, 5000)
 </script></body></html>
