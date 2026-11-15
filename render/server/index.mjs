@@ -1,6 +1,6 @@
 // @familiar.strange render server.
 //
-// POST /render { reel_id }  → 202, queued. Renders one reel at a time.
+// POST /render { reel_id, voice? }  → 202, queued. Renders one reel at a time.
 // Flow: reels.script (collage beats) → TTS per beat (cached) → measure durations →
 // Remotion render → upload mp4 to the public 'reels' bucket → reels row moves
 // to 'video_review' (or 'error') → optional callback to n8n.
@@ -19,6 +19,7 @@ import { bundle } from '@remotion/bundler'
 import { renderMedia, selectComposition } from '@remotion/renderer'
 import { parseFile } from 'music-metadata'
 import { synthesize, ttsCacheKey, listVoices } from './tts.mjs'
+import { parseSay, stripPauses, captionPhrases } from '../shared/captions.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(here, '..')
@@ -79,36 +80,54 @@ async function callback(body) {
   }
 }
 
-async function runJob(reelId) {
+async function runJob(reelId, voice) {
   const { data: reel, error } = await supabase.from('reels').select('*').eq('id', reelId).single()
   if (error || !reel) throw new Error('Reel not found: ' + (error?.message || reelId))
   await update(reelId, { status: 'rendering', error: null })
 
   const raw = scriptBeats(reel.script)
 
-  // 1. Voice, one clip per beat, measured. Beat length follows the voice.
+  // 1. Voice. Every sentence is synthesized on its own and the pauses between
+  //    them are authored in the script ("Why? [0.6]"), so pacing is ours, not
+  //    the voice model's. Knowing where each sentence starts also gives exact
+  //    caption timing.
   const ttsDir = join(PUBLIC_DIR, 'tts')
   mkdirSync(ttsDir, { recursive: true })
   let synthesized = 0
   let reused = 0
   const beats = []
   for (const b of raw) {
-    const file = join(ttsDir, `${ttsCacheKey(b.say)}.mp3`)
-    if (existsSync(file)) reused++
-    else {
-      await synthesize(b.say, file)
-      synthesized++
+    const clips = []
+    const captions = []
+    let cursor = b.layout === 'hook' ? 6 : 4 // tiny lead-in so the first word isn't clipped by the cut
+    for (const sentence of parseSay(b.say)) {
+      const file = join(ttsDir, `${ttsCacheKey(sentence.text, voice)}.mp3`)
+      if (existsSync(file)) reused++
+      else {
+        await synthesize(sentence.text, file, voice)
+        synthesized++
+      }
+      const frames = Math.round(((await parseFile(file)).format.duration || 1) * FPS)
+      clips.push({ src: `${SELF}/tts/${file.split('/').pop()}`, from: cursor })
+      const phrases = captionPhrases(sentence.text)
+      const total = phrases.reduce((n, p) => n + p.length, 0) || 1
+      let done = 0
+      for (const p of phrases) {
+        captions.push({ text: p, from: Math.round(cursor + (frames * done) / total) })
+        done += p.length
+      }
+      cursor += frames + Math.round(sentence.pause * FPS)
     }
-    const seconds = (await parseFile(file)).format.duration || 2
-    const speechFrames = Math.round(seconds * FPS)
     beats.push({
       ...b,
-      src: `${SELF}/tts/${file.split('/').pop()}`,
-      speechFrames,
-      durationInFrames: speechFrames + BREATH_FRAMES + (b.layout === 'hook' ? HOOK_EXTRA_FRAMES : 0),
+      say: stripPauses(b.say),
+      clips,
+      captions,
+      speechFrames: cursor,
+      durationInFrames: cursor + BREATH_FRAMES + (b.layout === 'hook' ? HOOK_EXTRA_FRAMES : 0),
     })
   }
-  console.log(`TTS: ${synthesized} synthesized, ${reused} reused from cache`)
+  console.log(`TTS (${voice || 'default voice'}): ${synthesized} synthesized, ${reused} reused from cache`)
 
   // 2. Render
   const { count } = await supabase
@@ -169,10 +188,11 @@ let busy = null
 
 async function drain() {
   if (busy || !queue.length) return
-  busy = queue.shift()
-  const reelId = busy
+  const job = queue.shift()
+  busy = job.reelId
+  const reelId = job.reelId
   try {
-    const out = await runJob(reelId)
+    const out = await runJob(reelId, job.voice)
     await callback({ reel_id: reelId, status: 'video_review', ...out })
   } catch (err) {
     console.error(`✖ ${reelId} failed:`, err.message)
@@ -187,8 +207,9 @@ async function drain() {
 app.post('/render', (req, res) => {
   const reelId = String(req.body?.reel_id || '')
   if (!/^[0-9a-f-]{36}$/i.test(reelId)) return res.status(400).json({ error: 'reel_id (uuid) required' })
-  if (busy === reelId || queue.includes(reelId)) return res.status(409).json({ status: 'already queued', reel_id: reelId })
-  queue.push(reelId)
+  if (busy === reelId || queue.some((j) => j.reelId === reelId)) return res.status(409).json({ status: 'already queued', reel_id: reelId })
+  const voice = /^[a-z]{2}_[a-z0-9_]+$/i.test(req.body?.voice || '') ? req.body.voice : undefined
+  queue.push({ reelId, voice })
   res.status(202).json({ status: 'queued', reel_id: reelId, position: queue.length + (busy ? 1 : 0) })
   drain()
 })

@@ -6,17 +6,17 @@ import { createHash } from 'node:crypto'
 
 const PROVIDER = (process.env.TTS_PROVIDER || 'kokoro').toLowerCase()
 
-export function ttsConfigKey() {
+export function ttsConfigKey(voice) {
   if (PROVIDER === 'elevenlabs') {
     return ['elevenlabs', process.env.ELEVENLABS_VOICE_ID, process.env.ELEVENLABS_MODEL_ID || 'eleven_multilingual_v2'].join('|')
   }
-  return ['kokoro', process.env.KOKORO_VOICE || 'am_michael', process.env.KOKORO_SPEED || '1'].join('|')
+  return ['kokoro', voice || process.env.KOKORO_VOICE || 'am_michael', process.env.KOKORO_SPEED || '1'].join('|')
 }
 
 // Content-addressed: same text + provider + voice = same file, so re-rendering
 // an edited script only re-synthesizes the lines that changed.
-export function ttsCacheKey(text) {
-  return createHash('sha1').update(text + '|' + ttsConfigKey()).digest('hex').slice(0, 16)
+export function ttsCacheKey(text, voice) {
+  return createHash('sha1').update(text + '|' + ttsConfigKey(voice)).digest('hex').slice(0, 16)
 }
 
 export async function synthesize(text, outPath, voiceOverride) {

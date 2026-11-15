@@ -6,39 +6,48 @@ import '@fontsource/courier-prime/700.css'
 import { PALETTES } from './palettes'
 import { LAYOUTS, estimateFrames } from './layouts'
 import { PaperGrain, TornStrip, Tape, DotPatch, Shape, Piece, Headline, useSteppedFrame, W } from './parts'
-import { captionPhrases } from '../theme'
+import { captionPhrases, stripPauses } from '../../shared/captions.js'
 
 const ANTON = "'Anton', sans-serif"
 const MONO = "'Courier Prime', monospace"
 const STRIP_TOP = 1190
 const STRIP_H = 250
 
-export const beatFrames = (b) => b.durationInFrames || estimateFrames(b.say)
+export const beatFrames = (b) => b.durationInFrames || estimateFrames(stripPauses(b.say))
 const startOf = (beats, i) => beats.slice(0, i).reduce((a, b) => a + beatFrames(b), 0)
 
 // Captions sit on the torn strip: the one running text stream. Chunks are
 // timed by length across the spoken part of the beat (word timestamps from
 // the voice will replace this once TTS is wired in).
-const Caption = ({ say, speechFrames, ink }) => {
+const Caption = ({ say, speechFrames, captions, ink }) => {
   const frame = useCurrentFrame()
-  const chunks = captionPhrases(say)
-  // time by length, but give short phrases enough time to be read
-  const weights = chunks.map((c) => Math.max(c.length, 14))
-  const total = weights.reduce((a, c) => a + c, 0) || 1
-  // start frame of each phrase; the active one is the last that has started.
-  // (The earlier version restarted the final phrase's fade once the speech
-  // ended, which made it blink in a second time before the beat changed.)
-  const starts = []
-  let t = 0
-  for (const w of weights) { starts.push(t); t += (w / total) * speechFrames }
-  let active = 0
-  for (let i = 0; i < starts.length; i++) if (frame >= starts[i]) active = i
+  let text
+  let since
+  if (captions?.length) {
+    // Real timings from the voice: each phrase starts when its sentence does.
+    let active = 0
+    for (let i = 0; i < captions.length; i++) if (frame >= captions[i].from) active = i
+    text = captions[active].text
+    since = frame - captions[active].from
+  } else {
+    // Preview without audio: estimate by length across the beat.
+    const chunks = captionPhrases(stripPauses(say))
+    const weights = chunks.map((c) => Math.max(c.length, 14))
+    const total = weights.reduce((a, c) => a + c, 0) || 1
+    const starts = []
+    let t = 0
+    for (const w of weights) { starts.push(t); t += (w / total) * speechFrames }
+    let active = 0
+    for (let i = 0; i < starts.length; i++) if (frame >= starts[i]) active = i
+    text = chunks[active]
+    since = frame - starts[active]
+  }
   // phrases swap on a near-cut: a 2-frame soften, never a gap with no text
-  const o = interpolate(frame - starts[active], [0, 2], [0.5, 1], { extrapolateRight: 'clamp' })
+  const o = interpolate(since, [0, 2], [0.5, 1], { extrapolateRight: 'clamp' })
   return (
     <div style={{ position: 'absolute', top: STRIP_TOP, left: 70, width: W - 140, height: STRIP_H, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'rotate(-1.2deg)' }}>
       <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: 60, lineHeight: 1.15, color: ink, textAlign: 'center', opacity: o, textWrap: 'balance' }}>
-        {chunks[active]}
+        {text}
       </div>
     </div>
   )
@@ -131,8 +140,12 @@ export const CollageReel = ({ palette = 'tomato', number = 1, sources = '', beat
       <TornStrip top={STRIP_TOP} height={STRIP_H} color={P.paper} />
       {beats.map((b, i) => (
         <Sequence key={'c' + i} from={startOf(beats, i)} durationInFrames={beatFrames(b)} layout="none">
-          <Caption say={b.say} speechFrames={b.speechFrames || beatFrames(b) - 12} ink={P.ink} />
-          {b.src ? <Audio src={b.src} /> : null}
+          <Caption say={b.say} speechFrames={b.speechFrames || beatFrames(b) - 12} captions={b.captions} ink={P.ink} />
+          {(b.clips || []).map((c, k) => (
+            <Sequence key={k} from={c.from} layout="none">
+              <Audio src={c.src} />
+            </Sequence>
+          ))}
         </Sequence>
       ))}
 
