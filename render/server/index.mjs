@@ -21,6 +21,7 @@ import { parseFile } from 'music-metadata'
 import { synthesize, ttsCacheKey, listVoices } from './tts.mjs'
 import { parseSay, stripPauses, captionPhrases } from '../shared/captions.js'
 import { mountLibrary } from './library.mjs'
+import { mountStudio } from './studio.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(here, '..')
@@ -224,15 +225,23 @@ async function drain() {
   }
 }
 
+function enqueue(reelId, voiceIn) {
+  if (busy === reelId || queue.some((j) => j.reelId === reelId)) return { error: 'already queued', reel_id: reelId }
+  const voice = /^[a-z]{2}_[a-z0-9_]+$/i.test(voiceIn || '') ? voiceIn : undefined
+  queue.push({ reelId, voice })
+  const position = queue.length + (busy ? 1 : 0)
+  drain()
+  return { status: 'queued', reel_id: reelId, position }
+}
+
 app.post('/render', (req, res) => {
   const reelId = String(req.body?.reel_id || '')
   if (!/^[0-9a-f-]{36}$/i.test(reelId)) return res.status(400).json({ error: 'reel_id (uuid) required' })
-  if (busy === reelId || queue.some((j) => j.reelId === reelId)) return res.status(409).json({ status: 'already queued', reel_id: reelId })
-  const voice = /^[a-z]{2}_[a-z0-9_]+$/i.test(req.body?.voice || '') ? req.body.voice : undefined
-  queue.push({ reelId, voice })
-  res.status(202).json({ status: 'queued', reel_id: reelId, position: queue.length + (busy ? 1 : 0) })
-  drain()
+  const out = enqueue(reelId, req.body?.voice)
+  res.status(out.error ? 409 : 202).json(out)
 })
+
+mountStudio(app, { supabase, publicDir: PUBLIC_DIR, library, enqueue })
 
 app.get('/health', (_req, res) => res.json({ ok: true, busy, queued: queue.length }))
 

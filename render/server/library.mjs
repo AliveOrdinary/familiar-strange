@@ -110,5 +110,24 @@ export function mountLibrary(app, { supabase, publicDir, self }) {
 
   app.get('/library', (_req, res) => res.type('html').send(readFileSync(join(here, 'library.html'), 'utf8')))
 
-  return { resolve }
+  // For the script pipeline: make sure an asset exists, generating it if it is
+  // new. Runs to completion so a reel's assets are made one after another.
+  async function ensure(kind, name, description) {
+    const { data: existing } = await supabase.from('library').select('*').eq('kind', kind).eq('name', name).maybeSingle()
+    if (existing) return existing.status
+    if (!vertexConfigured()) throw new Error('GOOGLE_CREDENTIALS_B64 is not set on the stack')
+    if (!(await underCap(kind))) throw new Error(`Daily limit reached (${CAPS[kind]} ${kind}s in 24 hours); "${name}" was not generated`)
+    const { data, error } = await supabase.from('library').insert({ kind, name, description, status: 'generating' }).select().single()
+    if (error) throw new Error(error.message)
+    await generate(data)
+    return 'pending'
+  }
+
+  // name → status for a list of "kind:name" keys (missing ones are absent)
+  async function statuses() {
+    const { data } = await supabase.from('library').select('kind,name,status,error')
+    return Object.fromEntries((data || []).map((r) => [`${r.kind}:${r.name}`, r]))
+  }
+
+  return { resolve, ensure, statuses }
 }

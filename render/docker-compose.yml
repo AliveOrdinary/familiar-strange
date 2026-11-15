@@ -23,6 +23,9 @@ services:
       GOOGLE_CREDENTIALS_B64: ${GOOGLE_CREDENTIALS_B64:-}
       DAILY_IMAGE_CAP: ${DAILY_IMAGE_CAP:-30}
       DAILY_CLIP_CAP: ${DAILY_CLIP_CAP:-6}
+      # Claude API: researches the question bank and writes scripts (see /studio)
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5-5}
       CALLBACK_URL: ${CALLBACK_URL:-}
       IG_HANDLE: ${IG_HANDLE:-@familiar.strange}
       PORT: "3123"
