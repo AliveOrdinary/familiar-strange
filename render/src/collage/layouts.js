@@ -23,6 +23,11 @@ export const LAYOUTS = {
   ].filter(Boolean),
   // one piece held high, leaving room for a stack of keyword slabs under it
   top: (p) => [place(p[0], 540, 560, 640, 400, -4, 'left')],
+  // a film clip filling most of the stage, with one small cut-out tucked over its corner
+  film: (p) => [
+    place(p[0], 450, 640, 640, 780, -3, 'left'),
+    p[1] && place(p[1], 850, 880, 330, 330, 7, 'right'),
+  ].filter(Boolean),
   solo: (p) => [place(p[0], 540, 650, 700, 600, -4, 'left')],
   duo: (p) => [place(p[0], 330, 540, 520, 440, -6, 'left'), place(p[1], 740, 800, 500, 430, 5, 'right')],
   versus: (p) => [place(p[0], 290, 650, 420, 560, -4, 'left'), place(p[1], 790, 650, 420, 560, 4, 'right')],

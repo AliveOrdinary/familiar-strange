@@ -18,7 +18,7 @@ export const tipping = {
       pieces: [{ name: 'bell', at: 0 }],
       labels: [{ text: 'You tip down', at: 2 }],
       say: 'And it has a direction. [0.35] Tips began as coins for other people’s servants. [0.45] You tip down.' },
-    { layout: 'duo', pieces: [{ name: 'chocolates', at: 0 }, { name: 'watch', at: 0 }],
+    { layout: 'film', pieces: [{ clip: 'nurse-veo', at: 0 }, { name: 'chocolates', at: 0 }],
       labels: [{ text: 'A real gift', at: 1 }],
       say: 'So the nurse gets chocolates. [0.35] Cash would turn her care into a purchase.' },
     { layout: 'payoff', headline: ['Tip some.', 'Thank', 'the rest.'],
