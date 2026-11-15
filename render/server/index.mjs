@@ -1,7 +1,7 @@
 // @familiar.strange render server.
 //
 // POST /render { reel_id }  → 202, queued. Renders one reel at a time.
-// Flow: reels.script + assets → TTS per line (cached) → measure durations →
+// Flow: reels.script (collage beats) → TTS per beat (cached) → measure durations →
 // Remotion render → upload mp4 to the public 'reels' bucket → reels row moves
 // to 'video_review' (or 'error') → optional callback to n8n.
 //
@@ -19,13 +19,12 @@ import { bundle } from '@remotion/bundler'
 import { renderMedia, selectComposition } from '@remotion/renderer'
 import { parseFile } from 'music-metadata'
 import { synthesize, ttsCacheKey, listVoices } from './tts.mjs'
-import { cacheImage } from './images.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(here, '..')
 const PUBLIC_DIR = join(ROOT, 'public')
 const FPS = 30
-const BREATH_FRAMES = 9 // silence after each line
+const BREATH_FRAMES = 12 // silence after each beat
 const HOOK_EXTRA_FRAMES = 12 // let the question land before the first beat
 const PORT = Number(process.env.PORT || 3123)
 const SELF = process.env.PUBLIC_HOST || `http://127.0.0.1:${PORT}`
@@ -49,21 +48,17 @@ console.log('Bundle ready.')
 
 // ---------------------------------------------------------------------------
 
-function scriptLines(script) {
-  if (!script?.hook || !Array.isArray(script.beats) || !script.payoff) {
-    throw new Error('Script must have hook, beats[] and payoff')
+// A reel's script is the collage format the template renders directly:
+// { palette, sources, beats: [{ layout, say, pieces[], headline?, label?, tags? }] }
+function scriptBeats(script) {
+  if (!Array.isArray(script?.beats) || !script.beats.length) throw new Error('Script must have beats[]')
+  for (const [i, b] of script.beats.entries()) {
+    if (!b.say) throw new Error(`Beat ${i + 1} has no "say"`)
+    for (const name of b.pieces || []) {
+      if (!existsSync(join(PUBLIC_DIR, 'pieces', `${name}.png`))) throw new Error(`Beat ${i + 1}: no cut-out named "${name}"`)
+    }
   }
-  const lines = [
-    { kind: 'hook', ...script.hook },
-    ...script.beats.map((b) => ({ kind: 'beat', ...b })),
-    { kind: 'payoff', ...script.payoff },
-  ]
-  if (script.cta?.say) lines.push({ kind: 'cta', ...script.cta })
-  for (const l of lines) {
-    if (!l.say) throw new Error(`Empty "say" on a ${l.kind} line`)
-    l.show = l.show || l.say
-  }
-  return lines
+  return script.beats
 }
 
 async function update(reelId, fields) {
@@ -89,79 +84,48 @@ async function runJob(reelId) {
   if (error || !reel) throw new Error('Reel not found: ' + (error?.message || reelId))
   await update(reelId, { status: 'rendering', error: null })
 
-  const raw = scriptLines(reel.script)
+  const raw = scriptBeats(reel.script)
 
-  // 1. Images: one per line where available; lines without their own image
-  //    hold the previous one, so the pan simply continues.
-  const { data: assets } = await supabase.from('assets').select('*').eq('reel_id', reelId)
-  const byIndex = new Map((assets || []).map((a) => [a.beat_index, a]))
-  const imgDir = join(PUBLIC_DIR, 'img')
-  let lastImage = null
-  let lastCredit = null
-  const images = []
-  for (let i = 0; i < raw.length; i++) {
-    const a = byIndex.get(i)
-    if (a) {
-      try {
-        const file = await cacheImage(a.file_url, imgDir)
-        lastImage = `${SELF}/img/${file}`
-        lastCredit = a.attribution || `${a.provider}, ${a.license}`
-      } catch (e) {
-        console.warn(`Image for line ${i} skipped: ${e.message}`)
-      }
-    }
-    images.push({ image: lastImage, credit: lastCredit })
-  }
-  // If the hook had no image but a later line did, open on the first one.
-  const firstImg = images.find((x) => x.image)
-  for (const x of images) {
-    if (!x.image && firstImg) Object.assign(x, firstImg)
-    else break
-  }
-
-  // 2. Voice, per line, measured
+  // 1. Voice, one clip per beat, measured. Beat length follows the voice.
   const ttsDir = join(PUBLIC_DIR, 'tts')
   mkdirSync(ttsDir, { recursive: true })
   let synthesized = 0
   let reused = 0
-  const lines = []
-  for (let i = 0; i < raw.length; i++) {
-    const file = join(ttsDir, `${ttsCacheKey(raw[i].say)}.mp3`)
+  const beats = []
+  for (const b of raw) {
+    const file = join(ttsDir, `${ttsCacheKey(b.say)}.mp3`)
     if (existsSync(file)) reused++
     else {
-      await synthesize(raw[i].say, file)
+      await synthesize(b.say, file)
       synthesized++
     }
     const seconds = (await parseFile(file)).format.duration || 2
     const speechFrames = Math.round(seconds * FPS)
-    lines.push({
-      kind: raw[i].kind,
-      say: raw[i].say,
-      show: raw[i].show,
+    beats.push({
+      ...b,
       src: `${SELF}/tts/${file.split('/').pop()}`,
       speechFrames,
-      durationInFrames: speechFrames + BREATH_FRAMES + (raw[i].kind === 'hook' ? HOOK_EXTRA_FRAMES : 0),
-      ...images[i],
+      durationInFrames: speechFrames + BREATH_FRAMES + (b.layout === 'hook' ? HOOK_EXTRA_FRAMES : 0),
     })
   }
   console.log(`TTS: ${synthesized} synthesized, ${reused} reused from cache`)
 
-  // 3. Render
+  // 2. Render
   const { count } = await supabase
     .from('reels')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'published')
-  const ambientPath = join(PUBLIC_DIR, 'audio', 'ambient.mp3')
   const inputProps = {
-    lines,
-    number: (count || 0) + 1,
-    handle: HANDLE,
-    ambientSrc: existsSync(ambientPath) ? `${SELF}/audio/ambient.mp3` : null,
+    palette: reel.script.palette || 'tomato',
+    number: reel.script.number || (count || 0) + 1,
+    sources: reel.script.sources || '',
+    beats,
   }
-  const comp = await selectComposition({ serveUrl, id: 'WhyReel', inputProps })
+  const comp = await selectComposition({ serveUrl, id: 'CollageReel', inputProps })
   const outPath = join(PUBLIC_DIR, 'out', `${reelId}.mp4`)
   mkdirSync(dirname(outPath), { recursive: true })
-  await renderMedia({ composition: comp, serveUrl, codec: 'h264', outputLocation: outPath, inputProps })
+  // crf 26 keeps a 45s reel near 10 MB, under Telegram's 20 MB send-by-link cap
+  await renderMedia({ composition: comp, serveUrl, codec: 'h264', crf: 26, outputLocation: outPath, inputProps })
 
   // 4. Upload. A per-render suffix gives a fresh URL every time, so the CDN
   //    can never serve a stale cut during review.
@@ -185,7 +149,6 @@ async function runJob(reelId) {
   const duration = comp.durationInFrames / FPS
   await update(reelId, { status: 'video_review', video_url: pub.publicUrl, duration_s: duration.toFixed(1) })
   pruneCache(ttsDir, 30)
-  pruneCache(imgDir, 30)
   console.log(`✔ ${reelId} → ${pub.publicUrl} (${duration.toFixed(1)}s)`)
   return { video_url: pub.publicUrl, duration_s: duration }
 }
