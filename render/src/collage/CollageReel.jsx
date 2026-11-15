@@ -73,6 +73,19 @@ const Label = ({ text, P, from = 22 }) => {
   )
 }
 
+// Source credit: a small paper tag under the masthead, only on the beat where
+// the author is named. The full reference list goes in the post caption.
+const Cite = ({ text, P, from = 14 }) => {
+  const f = useCurrentFrame() - from
+  if (f < 0) return null
+  const o = interpolate(f, [0, 5], [0, 1], { extrapolateRight: 'clamp' })
+  return (
+    <div style={{ position: 'absolute', top: 196, right: 70, opacity: o, transform: 'rotate(1.2deg)', fontFamily: MONO, fontWeight: 700, fontSize: 30, letterSpacing: 1, color: P.ink, background: P.paper, padding: '9px 18px 5px', boxShadow: '0 6px 8px rgba(0,0,0,0.25)' }}>
+      {text}
+    </div>
+  )
+}
+
 const Tag = ({ text, x, y, P, from }) => {
   const f = useSteppedFrame() - from
   if (f < 0) return null
@@ -113,14 +126,13 @@ const Beat = ({ beat, index, P }) => {
         </React.Fragment>
       ))}
       {beat.label ? <Label text={beat.label} P={P} /> : null}
+      {beat.cite ? <Cite text={beat.cite} P={P} /> : null}
     </>
   )
 }
 
-export const CollageReel = ({ palette = 'tomato', number = 1, sources = '', beats = [] }) => {
+export const CollageReel = ({ palette = 'tomato', number = 1, beats = [] }) => {
   const P = PALETTES[palette] || PALETTES.tomato
-  const frame = useCurrentFrame()
-  const current = Math.max(0, beats.findIndex((_, i) => frame < startOf(beats, i + 1)))
   return (
     <AbsoluteFill style={{ background: P.ground }}>
       <PaperGrain id="ground-grain" opacity={0.3} />
@@ -148,16 +160,6 @@ export const CollageReel = ({ palette = 'tomato', number = 1, sources = '', beat
           ))}
         </Sequence>
       ))}
-
-      {/* progress ticks + sources, inside Instagram's safe area */}
-      <div style={{ position: 'absolute', top: 1462, left: 80, fontFamily: MONO, fontWeight: 700, fontSize: 23, letterSpacing: 1, color: P.paper }}>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-          {beats.map((_, i) => (
-            <div key={i} style={{ width: 30, height: 5, background: i <= current ? P.paper : 'rgba(255,255,255,0.28)' }} />
-          ))}
-        </div>
-        <div style={{ opacity: 0.85 }}>{sources}</div>
-      </div>
 
       <PaperGrain id="top-grain" opacity={0.12} scale={1.6} />
     </AbsoluteFill>

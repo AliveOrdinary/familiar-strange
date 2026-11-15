@@ -5,9 +5,9 @@ export const leftOnRead = {
   beats: [
     { layout: 'hook', headline: ['Left', 'on read.'], pieces: ['mobile', 'chair'],
       say: 'Why does being left on read hurt? They owed you nothing.' },
-    { layout: 'solo', pieces: ['stethoscope'], label: '“Fine.”',
+    { layout: 'solo', pieces: ['stethoscope'], label: '“Fine.”', cite: 'Diana Boxer (2002)',
       say: 'Think about how you answer “How are you?” You say “fine”. People say it even to their doctor.' },
-    { layout: 'solo', pieces: ['telephone'], label: 'Phatic communion',
+    { layout: 'solo', pieces: ['telephone'], label: 'Phatic communion', cite: 'Bronisław Malinowski (1923)',
       say: 'Most talk isn’t about information. In 1923, Malinowski named it: phatic communion. Words whose only job is to keep a connection open.' },
     { layout: 'solo', pieces: ['chair'], label: 'Silence = threat',
       say: 'He noticed the other side too. Between people, silence is never neutral. He called it alarming, even dangerous.' },
