@@ -5,8 +5,8 @@ import '@fontsource/inter/800.css'
 import '@fontsource/courier-prime/700.css'
 import { PALETTES } from './palettes'
 import { LAYOUTS, estimateFrames } from './layouts'
-import { PaperGrain, TornStrip, Tape, DotPatch, Shape, Piece, Headline, useSteppedFrame, W } from './parts'
-import { captionPhrases, stripPauses } from '../../shared/captions.js'
+import { PaperGrain, TornStrip, Tape, DotPatch, Shape, Piece, Headline, useSteppedFrame, W, H } from './parts'
+import { captionPhrases, stripPauses, parseSay } from '../../shared/captions.js'
 
 const ANTON = "'Anton', sans-serif"
 const MONO = "'Courier Prime', monospace"
@@ -15,6 +15,22 @@ const STRIP_H = 250
 
 export const beatFrames = (b) => b.durationInFrames || estimateFrames(stripPauses(b.say))
 const startOf = (beats, i) => beats.slice(0, i).reduce((a, b) => a + beatFrames(b), 0)
+
+// When each sentence of a beat starts, in frames. The render server measures
+// this from the voice; in a silent preview it is estimated from text length.
+const sentenceStarts = (beat) => {
+  if (beat.sentenceStarts) return beat.sentenceStarts
+  const parts = parseSay(beat.say)
+  const span = beatFrames(beat) - 12
+  const weight = (p) => p.text.length + p.pause * 14
+  const total = parts.reduce((n, p) => n + weight(p), 0) || 1
+  const out = []
+  let t = 0
+  for (const p of parts) { out.push(Math.round((t / total) * span)); t += weight(p) }
+  return out
+}
+// "at: 2" means "arrive as sentence 2 starts" (a hair early, so it lands on the word)
+const cue = (starts, at, fallback) => (at != null && starts[at] != null ? Math.max(0, starts[at] - 2) : fallback)
 
 // Captions sit on the torn strip: the one running text stream. Chunks are
 // timed by length across the spoken part of the beat (word timestamps from
@@ -54,7 +70,7 @@ const Caption = ({ say, speechFrames, captions, ink }) => {
 }
 
 // Short keyword slab slapped down mid-beat. Never a sentence.
-const Label = ({ text, P, from = 22 }) => {
+const Label = ({ text, P, from = 22, top = 1030 }) => {
   const f = useCurrentFrame() - from
   if (f < 0) return null
   const s = interpolate(f, [0, 7], [1.18, 1], { extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) })
@@ -62,7 +78,7 @@ const Label = ({ text, P, from = 22 }) => {
   return (
     <div
       style={{
-        position: 'absolute', top: 1030, left: 70, fontFamily: ANTON, fontSize: 96, lineHeight: 1, textTransform: 'uppercase',
+        position: 'absolute', top, left: 70, fontFamily: ANTON, fontSize: 96, lineHeight: 1, textTransform: 'uppercase',
         color: P.paper, background: P.ink, padding: '14px 26px 8px', opacity: o,
         transform: `rotate(-2.5deg) scale(${s})`, transformOrigin: 'left center',
         boxShadow: '0 10px 10px rgba(0,0,0,0.3)', clipPath: 'polygon(0.5% 3%, 99% 0, 100% 96%, 1% 100%)',
@@ -70,6 +86,21 @@ const Label = ({ text, P, from = 22 }) => {
     >
       {text}
     </div>
+  )
+}
+
+// Every beat drifts slowly toward the viewer so the frame is never fully
+// still, and is swept off to the left in its last few frames so the next beat
+// arrives onto a cleared table instead of a hard cut.
+const BeatMotion = ({ duration, last, children }) => {
+  const frame = useCurrentFrame()
+  const stepped = useSteppedFrame()
+  const scale = interpolate(frame, [0, duration], [1, 1.045])
+  const out = last ? 0 : interpolate(stepped, [duration - 9, duration], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.in(Easing.cubic) })
+  return (
+    <AbsoluteFill style={{ transform: `translateX(${-out * W * 0.9}px) rotate(${-out * 4}deg) scale(${scale})`, transformOrigin: `50% ${H * 0.4}px` }}>
+      {children}
+    </AbsoluteFill>
   )
 }
 
@@ -110,23 +141,31 @@ const Scatter = ({ seed, P, bounds }) => {
 }
 
 const Beat = ({ beat, index, P }) => {
-  const layout = (LAYOUTS[beat.layout] || LAYOUTS.solo)(beat.pieces || [])
+  // pieces may be plain names or { name, at } where `at` is a sentence number
+  const specs = (beat.pieces || []).map((p) => (typeof p === 'string' ? { name: p } : p))
+  const layout = (LAYOUTS[beat.layout] || LAYOUTS.solo)(specs.map((p) => p.name))
+  const starts = sentenceStarts(beat)
   const hasHeadline = !!beat.headline
   const main = layout[0]
+  const labels = beat.labels || (beat.label ? [{ text: beat.label }] : [])
   return (
     <>
       {main ? <DotPatch id={`dp${index}`} x={main.x + main.w * 0.55} y={main.y + main.h * 0.1} w={260} h={Math.min(420, main.h)} color={P.ink} rotate={-3} /> : null}
       <Scatter seed={`b${index}`} P={P} bounds={{ x0: 30, x1: 1050, y0: hasHeadline ? 620 : 330, y1: 1080 }} />
-      {hasHeadline ? <Headline lines={beat.headline} top={230} paper={P.paper} ink={P.ink} from={3} font={ANTON} /> : null}
-      {layout.map((p, i) => (
-        <React.Fragment key={p.name + i}>
-          <Piece id={`${index}${p.name}`} src={staticFile(`pieces/${p.name}.png`)} x={p.x} y={p.y} w={p.w} rotate={p.rotate} from={6 + i * 8} enter={p.enter} />
-          {i === 1 ? <Tape x={p.x + p.w * 0.15} y={p.y - 14} w={p.w * 0.7} h={58} rotate={p.rotate + 4} /> : null}
-          {beat.tags?.[i] ? <Tag text={beat.tags[i]} x={p.x + p.w / 2} y={p.y + p.h + 26} P={P} from={16 + i * 8} /> : null}
-        </React.Fragment>
+      {hasHeadline ? <Headline lines={beat.headline} top={230} paper={P.paper} ink={P.ink} from={cue(starts, beat.headlineAt, 3)} font={ANTON} /> : null}
+      {layout.map((p, i) => {
+        const from = cue(starts, specs[i]?.at, 6 + i * 8) + (specs[i]?.at != null ? i * 3 : 0)
+        return (
+          <React.Fragment key={p.name + i}>
+            <Piece id={`${index}${p.name}`} src={staticFile(`pieces/${p.name}.png`)} x={p.x} y={p.y} w={p.w} rotate={p.rotate} from={from} enter={p.enter} />
+            {beat.tags?.[i] ? <Tag text={beat.tags[i]} x={p.x + p.w / 2} y={p.y + p.h + 26} P={P} from={from + 10} /> : null}
+          </React.Fragment>
+        )
+      })}
+      {labels.map((l, i) => (
+        <Label key={i} text={l.text} P={P} from={cue(starts, l.at, 22 + i * 12)} top={1142 - (labels.length - i) * 112} />
       ))}
-      {beat.label ? <Label text={beat.label} P={P} /> : null}
-      {beat.cite ? <Cite text={beat.cite} P={P} /> : null}
+      {beat.cite ? <Cite text={beat.cite} P={P} from={cue(starts, beat.citeAt, 14)} /> : null}
     </>
   )
 }
@@ -144,7 +183,9 @@ export const CollageReel = ({ palette = 'tomato', number = 1, beats = [] }) => {
 
       {beats.map((b, i) => (
         <Sequence key={i} from={startOf(beats, i)} durationInFrames={beatFrames(b)} layout="none">
-          <Beat beat={b} index={i} P={P} />
+          <BeatMotion duration={beatFrames(b)} last={i === beats.length - 1}>
+            <Beat beat={b} index={i} P={P} />
+          </BeatMotion>
         </Sequence>
       ))}
 

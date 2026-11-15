@@ -20,6 +20,8 @@ export const LAYOUTS = {
     p[1] && place(p[1], 800, 880, 380, 520, 5, 'right'),
     p[2] && place(p[2], 850, 1660, 340, 340, -8, 'bottom'),
   ].filter(Boolean),
+  // one piece held high, leaving room for a stack of keyword slabs under it
+  top: (p) => [place(p[0], 540, 560, 640, 400, -4, 'left')],
   solo: (p) => [place(p[0], 540, 650, 700, 600, -4, 'left')],
   duo: (p) => [place(p[0], 330, 540, 520, 440, -6, 'left'), place(p[1], 740, 800, 500, 430, 5, 'right')],
   versus: (p) => [place(p[0], 290, 650, 420, 560, -4, 'left'), place(p[1], 790, 650, 420, 560, 4, 'right')],

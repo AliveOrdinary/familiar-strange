@@ -55,7 +55,8 @@ function scriptBeats(script) {
   if (!Array.isArray(script?.beats) || !script.beats.length) throw new Error('Script must have beats[]')
   for (const [i, b] of script.beats.entries()) {
     if (!b.say) throw new Error(`Beat ${i + 1} has no "say"`)
-    for (const name of b.pieces || []) {
+    for (const piece of b.pieces || []) {
+      const name = typeof piece === 'string' ? piece : piece?.name
       if (!existsSync(join(PUBLIC_DIR, 'pieces', `${name}.png`))) throw new Error(`Beat ${i + 1}: no cut-out named "${name}"`)
     }
   }
@@ -99,6 +100,7 @@ async function runJob(reelId, voice) {
   for (const b of raw) {
     const clips = []
     const captions = []
+    const sentenceStarts = []
     let cursor = b.layout === 'hook' ? 6 : 4 // tiny lead-in so the first word isn't clipped by the cut
     for (const sentence of parseSay(b.say)) {
       const file = join(ttsDir, `${ttsCacheKey(sentence.text, voice)}.mp3`)
@@ -108,6 +110,7 @@ async function runJob(reelId, voice) {
         synthesized++
       }
       const frames = Math.round(((await parseFile(file)).format.duration || 1) * FPS)
+      sentenceStarts.push(cursor)
       clips.push({ src: `${SELF}/tts/${file.split('/').pop()}`, from: cursor })
       const phrases = captionPhrases(sentence.text)
       const total = phrases.reduce((n, p) => n + p.length, 0) || 1
@@ -123,6 +126,7 @@ async function runJob(reelId, voice) {
       say: stripPauses(b.say),
       clips,
       captions,
+      sentenceStarts,
       speechFrames: cursor,
       durationInFrames: cursor + BREATH_FRAMES + (b.layout === 'hook' ? HOOK_EXTRA_FRAMES : 0),
     })
