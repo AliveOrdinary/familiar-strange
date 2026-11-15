@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Library · Why we do this</title>
+<style>
+  :root { --ground:#c8372d; --paper:#f4efe4; --ink:#161412; --line:#d9d2c3; --muted:#6b655c; }
+  * { box-sizing:border-box } body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.45 ui-sans-serif,system-ui,sans-serif }
+  header { background:var(--ground); color:var(--paper); padding:20px 24px }
+  header h1 { margin:0; font:700 15px/1 ui-monospace,Menlo,monospace; letter-spacing:.25em; text-transform:uppercase }
+  header p { margin:8px 0 0; opacity:.9; font-size:14px }
+  main { max-width:1100px; margin:0 auto; padding:24px }
+  form { display:grid; grid-template-columns:120px 200px 1fr auto; gap:10px; align-items:end; padding:16px; border:1px solid var(--line); background:#fff; margin-bottom:8px }
+  label { display:grid; gap:4px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted) }
+  input, select, textarea { font:inherit; padding:9px 10px; border:1px solid var(--line); background:#fff; color:var(--ink); width:100% }
+  button { font:inherit; font-weight:600; padding:9px 14px; border:1px solid var(--ink); background:var(--ink); color:var(--paper); cursor:pointer }
+  button.ghost { background:transparent; color:var(--ink) } button:disabled { opacity:.45; cursor:default }
+  .note { font-size:13px; color:var(--muted); margin:0 0 24px } .err { color:#a12018 }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin:28px 0 12px }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px }
+  .card { background:#fff; border:1px solid var(--line); display:flex; flex-direction:column }
+  .stage { background:var(--ground); aspect-ratio:1; display:flex; align-items:center; justify-content:center; padding:14px }
+  .stage img, .stage video { max-width:100%; max-height:100%; filter:drop-shadow(0 6px 6px rgba(0,0,0,.35)) }
+  .stage video { filter:grayscale(1) contrast(1.4); border:8px solid var(--paper) }
+  .stage span { color:var(--paper); font:13px ui-monospace,Menlo,monospace; text-align:center }
+  .body { padding:12px; display:grid; gap:8px; flex:1 }
+  .name { font-weight:700 } .name small { font-weight:400; color:var(--muted) }
+  .desc { font-size:13px; color:var(--muted) } textarea { font-size:13px; min-height:64px; resize:vertical }
+  .row { display:flex; gap:8px; flex-wrap:wrap } .row button { padding:7px 10px; font-size:14px }
+  @media (max-width:760px) { form { grid-template-columns:1fr } }
+</style></head><body>
+<header><h1>Why we do this · Library</h1><p>Cut-outs and film clips. Nothing reaches a reel until it is approved here.</p></header>
+<main>
+  <form id="new">
+    <label>Kind<select name="kind"><option value="piece">Cut-out</option><option value="clip">Film clip</option></select></label>
+    <label>Name<input name="name" placeholder="doormat" required></label>
+    <label>Describe it<input name="description" placeholder="a worn coir doormat seen from above" required></label>
+    <button>Generate</button>
+  </form>
+  <p class="note" id="note">Name it the way a script will refer to it. A cut-out takes about 15 seconds, a clip about a minute.</p>
+  <div id="lists"></div>
+</main>
+<script>
+const $ = (s, el = document) => el.querySelector(s)
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const post = async (url, body) => {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(j.error || 'Request failed')
+  return j
+}
+const say = (msg, bad) => { const n = $('#note'); n.textContent = msg; n.className = 'note' + (bad ? ' err' : '') }
+const GROUPS = [['pending', 'Waiting for you'], ['generating', 'Being made'], ['error', 'Failed'], ['approved', 'Approved'], ['rejected', 'Rejected']]
+let editing = false
+function card(it) {
+  const media = it.status === 'generating' ? '<span>generating…</span>'
+    : !it.url ? '<span>no file</span>'
+    : it.kind === 'clip' ? `<video src="${it.url}" autoplay loop muted playsinline></video>` : `<img src="${it.url}" alt="${esc(it.name)}">`
+  const can = it.status !== 'generating'
+  return `<div class="card" data-id="${it.id}"><div class="stage">${media}</div><div class="body">
+    <div class="name">${esc(it.name)} <small>${it.kind === 'clip' ? 'film clip' : 'cut-out'}</small></div>
+    ${it.error ? `<div class="desc err">${esc(it.error)}</div>` : ''}
+    <textarea aria-label="Description">${esc(it.description)}</textarea>
+    <div class="row">
+      ${it.url && it.status !== 'approved' && can ? '<button data-a="approve">Approve</button>' : ''}
+      ${can ? '<button class="ghost" data-a="regenerate">Regenerate</button>' : ''}
+      ${it.status !== 'rejected' && can ? '<button class="ghost" data-a="reject">Reject</button>' : ''}
+    </div></div></div>`
+}
+async function load() {
+  if (editing) return
+  const r = await fetch('/library.json').then((x) => x.json())
+  if (!r.configured) say('Google sign-in is not set on the stack yet (GOOGLE_CREDENTIALS_B64), so nothing can be generated.', true)
+  const items = r.items || []
+  $('#lists').innerHTML = GROUPS.map(([s, title]) => {
+    const g = items.filter((i) => i.status === s)
+    return g.length ? `<h2>${title} (${g.length})</h2><div class="grid">${g.map(card).join('')}</div>` : ''
+  }).join('') || '<p class="note">Nothing here yet. Generate the first piece above.</p>'
+}
+document.addEventListener('focusin', (e) => { if (e.target.matches('.card textarea')) editing = true })
+document.addEventListener('focusout', (e) => { if (e.target.matches('.card textarea')) editing = false })
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-a]'); if (!b) return
+  const c = b.closest('.card'); b.disabled = true
+  try { await post(`/library/${c.dataset.id}/${b.dataset.a}`, { description: $('textarea', c).value }); editing = false; await load() }
+  catch (err) { say(err.message, true); b.disabled = false }
+})
+$('#new').addEventListener('submit', async (e) => {
+  e.preventDefault(); const f = new FormData(e.target)
+  try { await post('/library', Object.fromEntries(f)); e.target.reset(); say('Started. It will appear under "Waiting for you" when it is ready.'); await load() }
+  catch (err) { say(err.message, true) }
+})
+load(); setInterval(load, 5000)
+</script></body></html>

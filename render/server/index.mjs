@@ -20,6 +20,7 @@ import { renderMedia, selectComposition } from '@remotion/renderer'
 import { parseFile } from 'music-metadata'
 import { synthesize, ttsCacheKey, listVoices } from './tts.mjs'
 import { parseSay, stripPauses, captionPhrases } from '../shared/captions.js'
+import { mountLibrary } from './library.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(here, '..')
@@ -42,6 +43,7 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 const app = express()
 app.use(express.json())
 app.use(express.static(PUBLIC_DIR))
+const library = mountLibrary(app, { supabase, publicDir: PUBLIC_DIR, self: SELF })
 
 console.log('Bundling Remotion project…')
 const serveUrl = await bundle({ entryPoint: join(ROOT, 'src', 'index.jsx') })
@@ -51,20 +53,30 @@ console.log('Bundle ready.')
 
 // A reel's script is the collage format the template renders directly:
 // { palette, sources, beats: [{ layout, say, pieces[], headline?, label?, tags? }] }
-function scriptBeats(script) {
+// Pieces and clips shipped in the repo are used as they are; anything else has
+// to be an approved entry in the library, which is resolved to a URL here.
+async function scriptBeats(script) {
   if (!Array.isArray(script?.beats) || !script.beats.length) throw new Error('Script must have beats[]')
+  const beats = []
   for (const [i, b] of script.beats.entries()) {
     if (!b.say) throw new Error(`Beat ${i + 1} has no "say"`)
+    const pieces = []
     for (const piece of b.pieces || []) {
-      if (piece?.clip) {
-        if (!existsSync(join(PUBLIC_DIR, 'clips', `${piece.clip}.mp4`))) throw new Error(`Beat ${i + 1}: no film clip named "${piece.clip}"`)
-        continue
+      const spec = typeof piece === 'string' ? { name: piece } : { ...piece }
+      const kind = spec.clip ? 'clip' : 'piece'
+      const name = spec.clip || spec.name
+      const shipped = kind === 'clip' ? join(PUBLIC_DIR, 'clips', `${name}.mp4`) : join(PUBLIC_DIR, 'pieces', `${name}.png`)
+      if (!existsSync(shipped)) {
+        const found = await library.resolve(kind, name)
+        if (found.error) throw new Error(`Beat ${i + 1}: ${found.error}`)
+        spec.src = found.src
+        spec.aspect = found.aspect
       }
-      const name = typeof piece === 'string' ? piece : piece?.name
-      if (!existsSync(join(PUBLIC_DIR, 'pieces', `${name}.png`))) throw new Error(`Beat ${i + 1}: no cut-out named "${name}"`)
+      pieces.push(spec)
     }
+    beats.push({ ...b, pieces })
   }
-  return script.beats
+  return beats
 }
 
 async function update(reelId, fields) {
@@ -90,7 +102,7 @@ async function runJob(reelId, voice) {
   if (error || !reel) throw new Error('Reel not found: ' + (error?.message || reelId))
   await update(reelId, { status: 'rendering', error: null })
 
-  const raw = scriptBeats(reel.script)
+  const raw = await scriptBeats(reel.script)
 
   // 1. Voice. Every sentence is synthesized on its own and the pauses between
   //    them are authored in the script ("Why? [0.6]"), so pacing is ours, not

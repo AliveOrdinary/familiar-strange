@@ -4,7 +4,7 @@ import '@fontsource/anton/400.css'
 import '@fontsource/inter/800.css'
 import '@fontsource/courier-prime/700.css'
 import { PALETTES } from './palettes'
-import { LAYOUTS, estimateFrames } from './layouts'
+import { layoutFor, estimateFrames } from './layouts'
 import { PaperGrain, TornStrip, Tape, DotPatch, Shape, Piece, Clip, Headline, useSteppedFrame, W, H } from './parts'
 import { captionPhrases, stripPauses, parseSay } from '../../shared/captions.js'
 
@@ -144,7 +144,8 @@ const Beat = ({ beat, index, P }) => {
   // pieces may be plain names or { name, at } where `at` is a sentence number
   // a piece may also be a film clip: { clip: 'nurse-gift', at, startFrom }
   const specs = (beat.pieces || []).map((p) => (typeof p === 'string' ? { name: p } : p.clip ? { ...p, name: `clip:${p.clip}` } : p))
-  const layout = (LAYOUTS[beat.layout] || LAYOUTS.solo)(specs.map((p) => p.name))
+  const extra = Object.fromEntries(specs.filter((p) => p.aspect && !p.clip).map((p) => [p.name, p.aspect]))
+  const layout = layoutFor(beat.layout, specs.map((p) => p.name), extra)
   const starts = sentenceStarts(beat)
   const hasHeadline = !!beat.headline
   const main = layout[0]
@@ -159,9 +160,9 @@ const Beat = ({ beat, index, P }) => {
         return (
           <React.Fragment key={p.name + i}>
             {specs[i]?.clip ? (
-              <Clip id={`${index}c${i}`} src={staticFile(`clips/${specs[i].clip}.mp4`)} x={p.x} y={p.y} w={p.w} h={p.h} rotate={p.rotate} from={from} enter={p.enter} startFrom={specs[i].startFrom || 0} />
+              <Clip id={`${index}c${i}`} src={specs[i].src || staticFile(`clips/${specs[i].clip}.mp4`)} x={p.x} y={p.y} w={p.w} h={p.h} rotate={p.rotate} from={from} enter={p.enter} startFrom={specs[i].startFrom || 0} />
             ) : (
-              <Piece id={`${index}${p.name}`} src={staticFile(`pieces/${p.name}.png`)} x={p.x} y={p.y} w={p.w} rotate={p.rotate} from={from} enter={p.enter} />
+              <Piece id={`${index}${p.name}`} src={specs[i]?.src || staticFile(`pieces/${p.name}.png`)} x={p.x} y={p.y} w={p.w} rotate={p.rotate} from={from} enter={p.enter} />
             )}
             {beat.tags?.[i] ? <Tag text={beat.tags[i]} x={p.x + p.w / 2} y={p.y + p.h + 26} P={P} from={from + 10} /> : null}
           </React.Fragment>

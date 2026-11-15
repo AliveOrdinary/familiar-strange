@@ -19,6 +19,10 @@ services:
       KOKORO_SPEED: ${KOKORO_SPEED:-1.08}
       ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
       ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-}
+      # Vertex AI sign-in for generating cut-outs and clips (see /library)
+      GOOGLE_CREDENTIALS_B64: ${GOOGLE_CREDENTIALS_B64:-}
+      DAILY_IMAGE_CAP: ${DAILY_IMAGE_CAP:-30}
+      DAILY_CLIP_CAP: ${DAILY_CLIP_CAP:-6}
       CALLBACK_URL: ${CALLBACK_URL:-}
       IG_HANDLE: ${IG_HANDLE:-@familiar.strange}
       PORT: "3123"
@@ -29,6 +33,8 @@ services:
       # re-downloads everything.
       - fs-tts:/app/public/tts
       - fs-img:/app/public/img
+      # generated cut-outs and clips: the library
+      - fs-lib:/app/public/lib
     # One Chromium render peaks around 1.5–2 GB.
     mem_limit: 3g
 
@@ -44,3 +50,4 @@ services:
 volumes:
   fs-tts:
   fs-img:
+  fs-lib:
