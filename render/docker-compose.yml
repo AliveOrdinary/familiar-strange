@@ -1,0 +1,46 @@
+# Portainer: Stacks -> Add stack -> Repository
+#   Repo URL:     https://github.com/AliveOrdinary/familiar-strange
+#   Compose path: render/docker-compose.yml
+#   Env vars:     set the ones from .env.example in the stack's
+#                 "Environment variables" section (never commit them)
+# CLI alternative (from render/): docker compose up -d --build
+services:
+  render:
+    build: .
+    container_name: fs-render
+    restart: unless-stopped
+    depends_on: [kokoro]
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      TTS_PROVIDER: ${TTS_PROVIDER:-kokoro}
+      KOKORO_URL: http://kokoro:8880
+      KOKORO_VOICE: ${KOKORO_VOICE:-am_michael}
+      KOKORO_SPEED: ${KOKORO_SPEED:-1}
+      ELEVENLABS_API_KEY: ${ELEVENLABS_API_KEY:-}
+      ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-}
+      CALLBACK_URL: ${CALLBACK_URL:-}
+      IG_HANDLE: ${IG_HANDLE:-@familiar.strange}
+      PORT: "3123"
+    ports:
+      - "3123:3123"
+    volumes:
+      # Caches must outlive rebuilds, or every re-render re-synthesizes and
+      # re-downloads everything.
+      - fs-tts:/app/public/tts
+      - fs-img:/app/public/img
+    # One Chromium render peaks around 1.5–2 GB.
+    mem_limit: 3g
+
+  kokoro:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
+    container_name: fs-kokoro
+    restart: unless-stopped
+    # No published port: only the render server talks to it.
+    expose:
+      - "8880"
+    mem_limit: 2g
+
+volumes:
+  fs-tts:
+  fs-img:
