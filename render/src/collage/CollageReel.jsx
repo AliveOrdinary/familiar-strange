@@ -25,17 +25,16 @@ const Caption = ({ say, speechFrames, ink }) => {
   // time by length, but give short phrases enough time to be read
   const weights = chunks.map((c) => Math.max(c.length, 14))
   const total = weights.reduce((a, c) => a + c, 0) || 1
+  // start frame of each phrase; the active one is the last that has started.
+  // (The earlier version restarted the final phrase's fade once the speech
+  // ended, which made it blink in a second time before the beat changed.)
+  const starts = []
   let t = 0
-  let active = chunks.length - 1
-  let activeStart = 0
-  for (let i = 0; i < chunks.length; i++) {
-    const len = (weights[i] / total) * speechFrames
-    if (frame < t + len) { active = i; activeStart = t; break }
-    t += len
-    activeStart = t
-  }
-  // plain quick fade: text that is being read should not move
-  const o = interpolate(frame - activeStart, [0, 4], [0, 1], { extrapolateRight: 'clamp' })
+  for (const w of weights) { starts.push(t); t += (w / total) * speechFrames }
+  let active = 0
+  for (let i = 0; i < starts.length; i++) if (frame >= starts[i]) active = i
+  // phrases swap on a near-cut: a 2-frame soften, never a gap with no text
+  const o = interpolate(frame - starts[active], [0, 2], [0.5, 1], { extrapolateRight: 'clamp' })
   return (
     <div style={{ position: 'absolute', top: STRIP_TOP, left: 70, width: W - 140, height: STRIP_H, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'rotate(-1.2deg)' }}>
       <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: 60, lineHeight: 1.15, color: ink, textAlign: 'center', opacity: o, textWrap: 'balance' }}>
