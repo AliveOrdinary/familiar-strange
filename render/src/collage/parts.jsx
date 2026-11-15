@@ -1,5 +1,5 @@
 import React from 'react'
-import { AbsoluteFill, Img, interpolate, random, useCurrentFrame, Easing } from 'remotion'
+import { AbsoluteFill, Freeze, Img, OffthreadVideo, interpolate, random, useCurrentFrame, Easing } from 'remotion'
 
 export const W = 1080
 export const H = 1920
@@ -121,6 +121,47 @@ export const Piece = ({ src, x, y, w, rotate = 0, from = 0, enter = 'left', id }
         filter: 'drop-shadow(0 14px 12px rgba(0,0,0,0.38))',
       }}
     />
+  )
+}
+
+// A moving photo: a short film clip printed in black and white, glued inside
+// a white paper frame and taped down. It flies in like any other piece, plays
+// on threes so it shares the stop-motion rhythm, and carries print dots.
+export const Clip = ({ src, x, y, w, h, rotate = 0, from = 0, enter = 'left', id, startFrom = 0 }) => {
+  const f = useSteppedFrame() - from
+  if (f < 0) return null
+  const p = interpolate(f, [0, 12], [0, 1], { extrapolateRight: 'clamp', easing: Easing.out(Easing.back(1.4)) })
+  const off = { left: [-W, 0], right: [W, 0], top: [0, -900], bottom: [0, 900] }[enter]
+  const j = jitter(id, f, 0.6)
+  const dx = off[0] * (1 - p) + j.x
+  const dy = off[1] * (1 - p) + j.y
+  const r = rotate + (1 - p) * (enter === 'left' ? -14 : 14) + j.r
+  const B = 22
+  return (
+    <div
+      style={{
+        position: 'absolute', left: x, top: y, width: w, height: h, background: '#f4efe4', padding: B, boxSizing: 'border-box',
+        transform: `translate(${dx}px, ${dy}px) rotate(${r}deg)`,
+        filter: 'drop-shadow(0 14px 12px rgba(0,0,0,0.38))',
+        clipPath: 'polygon(0.6% 1.2%, 99.2% 0, 100% 98.6%, 0 100%)',
+      }}
+    >
+      <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: '#111' }}>
+        <Freeze frame={Math.max(0, f)}>
+          <OffthreadVideo src={src} muted startFrom={startFrom} style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'grayscale(1) contrast(1.55) brightness(1.08)' }} />
+        </Freeze>
+        <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, mixBlendMode: 'multiply', opacity: 0.55 }}>
+          <defs>
+            <pattern id={`ht-${id}`} width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+              <rect width="7" height="7" fill="#fff" />
+              <circle cx="3.5" cy="3.5" r="1.7" fill="#3a3a3a" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill={`url(#ht-${id})`} />
+        </svg>
+      </div>
+      <div style={{ position: 'absolute', left: '50%', top: -24, width: 170, height: 48, marginLeft: -85, transform: 'rotate(-4deg)', background: 'rgba(240, 226, 178, 0.78)', boxShadow: '0 2px 4px rgba(0,0,0,0.18)' }} />
+    </div>
   )
 }
 

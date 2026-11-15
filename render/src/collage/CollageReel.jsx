@@ -5,7 +5,7 @@ import '@fontsource/inter/800.css'
 import '@fontsource/courier-prime/700.css'
 import { PALETTES } from './palettes'
 import { LAYOUTS, estimateFrames } from './layouts'
-import { PaperGrain, TornStrip, Tape, DotPatch, Shape, Piece, Headline, useSteppedFrame, W, H } from './parts'
+import { PaperGrain, TornStrip, Tape, DotPatch, Shape, Piece, Clip, Headline, useSteppedFrame, W, H } from './parts'
 import { captionPhrases, stripPauses, parseSay } from '../../shared/captions.js'
 
 const ANTON = "'Anton', sans-serif"
@@ -142,7 +142,8 @@ const Scatter = ({ seed, P, bounds }) => {
 
 const Beat = ({ beat, index, P }) => {
   // pieces may be plain names or { name, at } where `at` is a sentence number
-  const specs = (beat.pieces || []).map((p) => (typeof p === 'string' ? { name: p } : p))
+  // a piece may also be a film clip: { clip: 'nurse-gift', at, startFrom }
+  const specs = (beat.pieces || []).map((p) => (typeof p === 'string' ? { name: p } : p.clip ? { ...p, name: `clip:${p.clip}` } : p))
   const layout = (LAYOUTS[beat.layout] || LAYOUTS.solo)(specs.map((p) => p.name))
   const starts = sentenceStarts(beat)
   const hasHeadline = !!beat.headline
@@ -157,7 +158,11 @@ const Beat = ({ beat, index, P }) => {
         const from = cue(starts, specs[i]?.at, 6 + i * 8) + (specs[i]?.at != null ? i * 3 : 0)
         return (
           <React.Fragment key={p.name + i}>
-            <Piece id={`${index}${p.name}`} src={staticFile(`pieces/${p.name}.png`)} x={p.x} y={p.y} w={p.w} rotate={p.rotate} from={from} enter={p.enter} />
+            {specs[i]?.clip ? (
+              <Clip id={`${index}c${i}`} src={staticFile(`clips/${specs[i].clip}.mp4`)} x={p.x} y={p.y} w={p.w} h={p.h} rotate={p.rotate} from={from} enter={p.enter} startFrom={specs[i].startFrom || 0} />
+            ) : (
+              <Piece id={`${index}${p.name}`} src={staticFile(`pieces/${p.name}.png`)} x={p.x} y={p.y} w={p.w} rotate={p.rotate} from={from} enter={p.enter} />
+            )}
             {beat.tags?.[i] ? <Tag text={beat.tags[i]} x={p.x + p.w / 2} y={p.y + p.h + 26} P={P} from={from + 10} /> : null}
           </React.Fragment>
         )

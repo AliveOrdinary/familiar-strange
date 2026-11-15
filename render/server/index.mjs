@@ -56,6 +56,10 @@ function scriptBeats(script) {
   for (const [i, b] of script.beats.entries()) {
     if (!b.say) throw new Error(`Beat ${i + 1} has no "say"`)
     for (const piece of b.pieces || []) {
+      if (piece?.clip) {
+        if (!existsSync(join(PUBLIC_DIR, 'clips', `${piece.clip}.mp4`))) throw new Error(`Beat ${i + 1}: no film clip named "${piece.clip}"`)
+        continue
+      }
       const name = typeof piece === 'string' ? piece : piece?.name
       if (!existsSync(join(PUBLIC_DIR, 'pieces', `${name}.png`))) throw new Error(`Beat ${i + 1}: no cut-out named "${name}"`)
     }

@@ -4,7 +4,8 @@ import aspects from './pieces.json'
 // (the area between the masthead and the caption strip). Sizes are capped by
 // height so tall cut-outs (a phone, a chair) never run into the strip.
 const fit = (name, w, maxH) => {
-  const a = aspects[name] || 1
+  // film clips are named 'clip:<file>' and sit in a 4:5 frame
+  const a = name.startsWith('clip:') ? 1.25 : aspects[name] || 1
   const width = Math.min(w, maxH / a)
   return { w: width, h: width * a }
 }
