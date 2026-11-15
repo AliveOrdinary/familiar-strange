@@ -134,18 +134,19 @@ export const Headline = ({ lines, top, left = 80, paper, ink, from = 0, font }) 
 )
 
 const HeadlineLine = ({ text, i, from, paper, ink, font }) => {
-  const f = useSteppedFrame() - from
+  const f = useCurrentFrame() - from
   if (f < 0) return <div style={{ height: 150 }} />
-  const s = interpolate(f, [0, 6], [1.35, 1], { extrapolateRight: 'clamp' })
-  const o = interpolate(f, [0, 3], [0, 1], { extrapolateRight: 'clamp' })
-  const j = jitter('h' + i, f, 0.6)
+  // Text lands once and then holds still: the paper pieces carry the
+  // stop-motion jitter, anything that has to be read does not.
+  const s = interpolate(f, [0, 7], [1.18, 1], { extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) })
+  const o = interpolate(f, [0, 4], [0, 1], { extrapolateRight: 'clamp' })
   const tilt = [-2.2, 1.4, -1, 1.8][i % 4]
   return (
     <div
       style={{
         fontFamily: font, fontSize: 132, lineHeight: 1, textTransform: 'uppercase', letterSpacing: 1,
         color: ink, background: paper, padding: '14px 26px 8px',
-        transform: `translate(${j.x}px, ${j.y}px) rotate(${tilt + j.r}deg) scale(${s})`, transformOrigin: 'left center',
+        transform: `rotate(${tilt}deg) scale(${s})`, transformOrigin: 'left center',
         opacity: o, boxShadow: '0 10px 10px rgba(0,0,0,0.3)',
         clipPath: 'polygon(0.5% 3%, 99% 0, 100% 96%, 1% 100%)',
       }}

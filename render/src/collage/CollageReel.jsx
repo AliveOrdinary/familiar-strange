@@ -1,12 +1,12 @@
 import React from 'react'
-import { AbsoluteFill, Audio, Sequence, interpolate, random, staticFile, useCurrentFrame } from 'remotion'
+import { AbsoluteFill, Audio, Easing, Sequence, interpolate, random, staticFile, useCurrentFrame } from 'remotion'
 import '@fontsource/anton/400.css'
 import '@fontsource/inter/800.css'
 import '@fontsource/courier-prime/700.css'
 import { PALETTES } from './palettes'
 import { LAYOUTS, estimateFrames } from './layouts'
-import { PaperGrain, TornStrip, Tape, DotPatch, Shape, Piece, Headline, useSteppedFrame, jitter, W } from './parts'
-import { captionChunks } from '../theme'
+import { PaperGrain, TornStrip, Tape, DotPatch, Shape, Piece, Headline, useSteppedFrame, W } from './parts'
+import { captionPhrases } from '../theme'
 
 const ANTON = "'Anton', sans-serif"
 const MONO = "'Courier Prime', monospace"
@@ -21,21 +21,24 @@ const startOf = (beats, i) => beats.slice(0, i).reduce((a, b) => a + beatFrames(
 // the voice will replace this once TTS is wired in).
 const Caption = ({ say, speechFrames, ink }) => {
   const frame = useCurrentFrame()
-  const chunks = captionChunks(say, 4)
-  const total = chunks.reduce((a, c) => a + c.length, 0) || 1
+  const chunks = captionPhrases(say)
+  // time by length, but give short phrases enough time to be read
+  const weights = chunks.map((c) => Math.max(c.length, 14))
+  const total = weights.reduce((a, c) => a + c, 0) || 1
   let t = 0
   let active = chunks.length - 1
   let activeStart = 0
   for (let i = 0; i < chunks.length; i++) {
-    const len = (chunks[i].length / total) * speechFrames
+    const len = (weights[i] / total) * speechFrames
     if (frame < t + len) { active = i; activeStart = t; break }
     t += len
     activeStart = t
   }
-  const s = interpolate(frame - activeStart, [0, 3], [0.9, 1], { extrapolateRight: 'clamp' })
+  // plain quick fade: text that is being read should not move
+  const o = interpolate(frame - activeStart, [0, 4], [0, 1], { extrapolateRight: 'clamp' })
   return (
     <div style={{ position: 'absolute', top: STRIP_TOP, left: 70, width: W - 140, height: STRIP_H, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'rotate(-1.2deg)' }}>
-      <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: 64, lineHeight: 1.12, color: ink, textAlign: 'center', transform: `scale(${s})` }}>
+      <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: 60, lineHeight: 1.15, color: ink, textAlign: 'center', opacity: o, textWrap: 'balance' }}>
         {chunks[active]}
       </div>
     </div>
@@ -44,16 +47,16 @@ const Caption = ({ say, speechFrames, ink }) => {
 
 // Short keyword slab slapped down mid-beat. Never a sentence.
 const Label = ({ text, P, from = 22 }) => {
-  const f = useSteppedFrame() - from
+  const f = useCurrentFrame() - from
   if (f < 0) return null
-  const s = interpolate(f, [0, 6], [1.4, 1], { extrapolateRight: 'clamp' })
-  const j = jitter('label' + text, f, 0.6)
+  const s = interpolate(f, [0, 7], [1.18, 1], { extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) })
+  const o = interpolate(f, [0, 4], [0, 1], { extrapolateRight: 'clamp' })
   return (
     <div
       style={{
         position: 'absolute', top: 1030, left: 70, fontFamily: ANTON, fontSize: 96, lineHeight: 1, textTransform: 'uppercase',
-        color: P.paper, background: P.ink, padding: '14px 26px 8px',
-        transform: `translate(${j.x}px, ${j.y}px) rotate(${-2.5 + j.r}deg) scale(${s})`, transformOrigin: 'left center',
+        color: P.paper, background: P.ink, padding: '14px 26px 8px', opacity: o,
+        transform: `rotate(-2.5deg) scale(${s})`, transformOrigin: 'left center',
         boxShadow: '0 10px 10px rgba(0,0,0,0.3)', clipPath: 'polygon(0.5% 3%, 99% 0, 100% 96%, 1% 100%)',
       }}
     >
