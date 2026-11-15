@@ -1,0 +1,21 @@
+export const tipping = {
+  palette: 'tomato',
+  number: 1,
+  sources: 'Mauss, The Gift (1925) · Segrave, Tipping (1998)',
+  beats: [
+    { layout: 'hook', headline: ['Why do', 'we tip?'], pieces: ['hand', 'receipt', 'cup'],
+      say: 'You tip the waiter. You don’t tip the nurse. Why?' },
+    { layout: 'duo', pieces: ['gift', 'handshake'], label: 'Never free',
+      say: 'A hundred years ago, Marcel Mauss studied gifts across the world and kept finding one rule. A gift is never free. You give, you accept, you give back.' },
+    { layout: 'versus', pieces: ['receipt', 'gift'], tags: ['Payment', 'Gift'],
+      say: 'A payment ends things: we’re even, goodbye. A gift keeps something open between us.' },
+    { layout: 'solo', pieces: ['hand'], label: 'Money. Gift rules.',
+      say: 'A tip sits in between. It’s money, but it follows gift rules. Optional, expected, and insulting to skip.' },
+    { layout: 'solo', pieces: ['bell'], label: 'You tip down',
+      say: 'And it has a direction. Tips began as coins for other people’s servants. You tip down.' },
+    { layout: 'duo', pieces: ['chocolates', 'watch'], label: 'A real gift',
+      say: 'So the nurse gets chocolates. A real gift, because cash would turn her care into a purchase.' },
+    { layout: 'payoff', headline: ['Tip some.', 'Thank', 'the rest.'], pieces: ['hand', 'chocolates'],
+      say: 'We tip the people we’re allowed to pay for kindness. Everyone else, we thank.' },
+  ],
+}

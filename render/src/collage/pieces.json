@@ -1,0 +1,15 @@
+{
+ "bell": 0.955,
+ "chair": 1.43,
+ "chocolates": 1.015,
+ "gift": 0.998,
+ "handshake": 0.574,
+ "mobile": 1.563,
+ "stethoscope": 1.512,
+ "telephone": 0.88,
+ "thumbs": 1.17,
+ "watch": 1.261,
+ "cup": 1.0,
+ "hand": 0.865,
+ "receipt": 1.54
+}

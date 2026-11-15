@@ -63,7 +63,7 @@ export function captionChunks(text, maxWords = 4) {
   const merged = []
   for (const c of chunks) {
     const prev = merged[merged.length - 1]
-    if (prev && !c.includes(' ') && prev.split(' ').length <= maxWords + 1) merged[merged.length - 1] = prev + ' ' + c
+    if (prev && !c.includes(' ') && !/[.!?]$/.test(prev) && prev.split(' ').length <= maxWords + 1) merged[merged.length - 1] = prev + ' ' + c
     else merged.push(c)
   }
   return merged

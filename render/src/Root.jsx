@@ -2,7 +2,9 @@ import React from 'react'
 import { Composition } from 'remotion'
 import { FPS, W, H } from './theme'
 import { WhyReel } from './WhyReel'
-import { CollageDemo } from './collage/CollageDemo'
+import { CollageReel, beatFrames } from './collage/CollageReel'
+import { tipping } from './collage/scripts/tipping'
+import { leftOnRead } from './collage/scripts/leftOnRead'
 
 const TAIL_PAD = 45 // 1.5s hold on the last frame so the loop doesn't jolt
 
@@ -66,13 +68,24 @@ const sample = {
 export const RemotionRoot = () => (
   <>
   <Composition
-    id="CollageDemo"
-    component={CollageDemo}
-    defaultProps={{ palette: 'tomato', number: 1 }}
+    id="CollageReel"
+    component={CollageReel}
+    calculateMetadata={({ props }) => ({ durationInFrames: props.beats.reduce((n, x) => n + beatFrames(x), 0) + 30 })}
+    defaultProps={tipping}
     fps={FPS}
     width={W}
     height={H}
-    durationInFrames={150}
+    durationInFrames={900}
+  />
+  <Composition
+    id="LeftOnRead"
+    component={CollageReel}
+    calculateMetadata={({ props }) => ({ durationInFrames: props.beats.reduce((n, x) => n + beatFrames(x), 0) + 30 })}
+    defaultProps={leftOnRead}
+    fps={FPS}
+    width={W}
+    height={H}
+    durationInFrames={900}
   />
   <Composition
     id="WhyReel"
