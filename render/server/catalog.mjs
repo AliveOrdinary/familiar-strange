@@ -5,7 +5,7 @@
 // GET  /review.json            what's waiting, and what has been spent
 // POST /catalog/draft          ask Gemini for more catalog entries now
 // POST /catalog/pause|resume
-import { askGemini, vertexConfigured } from './vertex.mjs'
+import { askGemini, probeGemini, vertexConfigured } from './vertex.mjs'
 import { THEMES } from './brief.mjs'
 import { COST, TOSS_REASONS } from './library.mjs'
 
@@ -154,6 +154,10 @@ ${[...have].join(', ') || '(empty)'}`,
       state: { paused: state.paused, busy: state.busy, drafting: state.drafting, last: state.last, lastError: state.lastError },
       cost: COST,
     })
+  })
+
+  app.get('/debug/gemini', async (_req, res) => {
+    try { res.json(await probeGemini()) } catch (e) { res.status(500).json({ error: e.message }) }
   })
 
   app.post('/catalog/draft', async (_req, res) => {

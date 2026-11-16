@@ -123,34 +123,63 @@ function parseJson(text) {
   throw new Error('Gemini did not return valid JSON')
 }
 
-export async function askGemini(parts, schema, { temperature = 0.4 } = {}) {
-  const contents = [{ role: 'user', parts: parts.map((p) => (typeof p === 'string' ? { text: p } : p)) }]
-  const strict = { temperature, responseMimeType: 'application/json', responseSchema: schema }
-  const loose = { temperature, ...(textModel?.[0] === IMAGE_MODEL ? { responseModalities: ['TEXT'] } : {}) }
-  const tell = { text: `Answer with JSON only, matching this schema: ${JSON.stringify(schema)}` }
-  const ask = async (cand, cfg, extra) => {
+// Vertex's schema dialect is stricter than JSON Schema (an enum needs a
+// matching format, for instance), so only the plain structure is sent and the
+// values are checked by the caller.
+function cleanSchema(x) {
+  if (Array.isArray(x)) return x.map(cleanSchema)
+  if (!x || typeof x !== 'object') return x
+  const out = {}
+  for (const [k, v] of Object.entries(x)) if (k !== 'enum' && k !== 'description') out[k] = cleanSchema(v)
+  return out
+}
+
+async function tryModel(cand, contents, schema, temperature) {
+  const isImage = cand[0] === IMAGE_MODEL
+  const text = async (cfg, extra) => {
     const body = await call(endpoint(cand), { contents: extra ? [{ ...contents[0], parts: [...contents[0].parts, extra] }] : contents, generationConfig: cfg })
     return (body.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('')
   }
-  const list = textModel ? [textModel] : TEXT_CANDIDATES
-  let last
-  for (const cand of list) {
-    const isImage = cand[0] === IMAGE_MODEL
-    try {
-      let text
-      try {
-        text = isImage ? await ask(cand, { temperature, responseModalities: ['TEXT'] }, tell) : await ask(cand, strict)
-      } catch (e) {
-        if (isImage || !/responseSchema|response_schema|responseMimeType|INVALID_ARGUMENT|400/i.test(e.message) || /404|not found/i.test(e.message)) throw e
-        text = await ask(cand, loose, tell) // model rejects schemas: ask in words
-      }
-      if (!textModel) { textModel = cand; console.log(`gemini: using ${cand[0]} (${cand[1]})`) }
-      return parseJson(text)
-    } catch (e) {
-      last = e
-      if (!/404|not found|does not have access|NOT_FOUND|PERMISSION_DENIED/i.test(e.message)) throw e
-      if (textModel) { textModel = null; return askGemini(parts, schema, { temperature }) }
+  const tell = { text: `Answer with JSON only, no other text, matching this structure: ${JSON.stringify(cleanSchema(schema))}` }
+  if (isImage) return parseJson(await text({ temperature, responseModalities: ['TEXT'] }, tell))
+  try {
+    return parseJson(await text({ temperature, responseMimeType: 'application/json', responseSchema: cleanSchema(schema) }))
+  } catch (e) {
+    if (/ 404|not found|NOT_FOUND|PERMISSION_DENIED|does not have access/i.test(e.message)) throw e
+    return parseJson(await text({ temperature }, tell)) // model dislikes the schema: ask in words
+  }
+}
+
+export async function askGemini(parts, schema, { temperature = 0.4 } = {}) {
+  const contents = [{ role: 'user', parts: parts.map((p) => (typeof p === 'string' ? { text: p } : p)) }]
+  if (textModel) {
+    try { return await tryModel(textModel, contents, schema, temperature) } catch (e) {
+      if (!/ 4\d\d/.test(e.message)) throw e
+      textModel = null // it stopped working: search again
     }
   }
-  throw last || new Error('No Gemini text model is reachable')
+  const errors = []
+  for (const cand of TEXT_CANDIDATES) {
+    try {
+      const out = await tryModel(cand, contents, schema, temperature)
+      textModel = cand
+      console.log(`gemini: using ${cand[0]} (${cand[1]})`)
+      return out
+    } catch (e) {
+      errors.push(`${cand[0]}@${cand[1]}: ${e.message.slice(0, 120)}`)
+      if (!/ 4\d\d|JSON/.test(e.message)) break // network trouble, not the model: stop
+    }
+  }
+  throw new Error('No Gemini text model worked. ' + errors.join(' | '))
+}
+
+// For troubleshooting: which text models answer from this project.
+export async function probeGemini() {
+  const contents = [{ role: 'user', parts: [{ text: 'Reply with {"ok": true}' }] }]
+  const schema = { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] }
+  const out = []
+  for (const cand of TEXT_CANDIDATES) {
+    try { out.push({ model: cand[0], region: cand[1], result: await tryModel(cand, contents, schema, 0) }) } catch (e) { out.push({ model: cand[0], region: cand[1], error: e.message.slice(0, 300) }) }
+  }
+  return out
 }
