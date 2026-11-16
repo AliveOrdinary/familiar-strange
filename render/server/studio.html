@@ -76,7 +76,7 @@ function reelCard(r, jobs) {
   if (review) actions = `<div class="row"><button data-a="approve-script">Approve script</button><button class="ghost" data-a="edit">Save my edits</button><button class="ghost" data-a="reject">Drop this reel</button></div>
       <div class="row" style="flex-wrap:nowrap"><input data-note placeholder="Or tell Claude what to change, e.g. the hook isn't answered by the end"><button class="ghost" data-a="revise">Revise</button></div>`
   else if (r.status === 'script_approved') actions = `<div class="row"><button data-a="render" ${waiting.length || busy ? 'disabled' : ''}>Render video</button>${waiting.length ? `<span class="note">${busy ? 'Generating assets…' : `Approve ${waiting.length} asset(s) in the <a href="/library">library</a> first.`}</span>` : ''}</div>`
-  else if (r.status === 'video_review') actions = `<div class="row"><a href="${esc(r.video_url)}" target="_blank" rel="noopener"><button>Open video (${esc(r.duration_s)}s)</button></a><button class="ghost" data-a="render">Render again</button></div>`
+  else if (r.status === 'video_review') actions = `<div class="row"><a href="${esc(r.video_url)}" target="_blank" rel="noopener"><button>Open video (${esc(r.duration_s)}s)</button></a><button class="ghost" data-a="render">Render again</button><button class="ghost" data-a="posted">Mark as posted</button><button class="ghost" data-a="reject">Drop this reel</button></div>`
   else if (r.status === 'error') actions = `<div class="row">${beats.length ? '<button class="ghost" data-a="render">Try rendering again</button>' : ''}<button class="ghost" data-a="reject">Drop this reel</button></div>`
   return `<div class="card" data-id="${r.id}"><div class="top"><div class="title">${esc(r.title || 'Untitled')}</div><span class="pill">${esc(STATUS[r.status] || r.status)}${busy && r.status !== 'drafting' ? ' · working' : ''}</span></div>
     ${r.error ? `<p class="note err">${esc(r.error)}</p>` : ''}${job?.state === 'error' && !r.error ? `<p class="note err">${esc(job.message)}</p>` : ''}
@@ -117,7 +117,7 @@ document.addEventListener('click', async (e) => {
       const says = [...c.querySelectorAll('[data-say]')].map((t) => t.value)
       if (act === 'approve-script' && says.length) await post(`/reels/${c.dataset.id}/edit`, { says })
       await post(`/reels/${c.dataset.id}/${act}`, act === 'edit' ? { says } : act === 'revise' ? { note: $('[data-note]', c).value } : {})
-      flash({ edit: 'Edits saved.', revise: 'Claude is revising; this takes a minute or two.', 'approve-script': 'Script approved. Any new cut-outs and clips are being generated; approve them in the library.', render: 'Rendering; about 90 seconds.' }[act] || '')
+      flash({ edit: 'Edits saved.', revise: 'Claude is revising; this takes a minute or two.', 'approve-script': 'Script approved. Any new cut-outs and clips are being generated; approve them in the library.', render: 'Rendering; about 90 seconds.', posted: 'Marked as posted.' }[act] || '')
     }
     typing = false; await load()
   } catch (err) { flash(err.message, true); btn.disabled = false }

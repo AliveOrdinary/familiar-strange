@@ -75,7 +75,7 @@ Your job now is to research one question and write the reel.
 ${RESEARCH}
 
 Script rules:
-- Six beats. 70 to 90 spoken words in total, which with pauses is about 35 to 40 seconds. Count them; over 90 is too long.
+- Six beats. 85 to 110 spoken words in total, which with pauses is about 40 to 48 seconds. Count them; over 110 is too long.
 - Beat 1 is the hook: a concrete everyday contrast or moment, ending in the question. The rest of the script MUST answer exactly that question; the last beat states the answer in a line the viewer could repeat to a friend.
 - One idea per beat. Name the anchor author and year aloud in the beat where the finding appears.
 - Write for the ear: short sentences, contractions, no brackets, no semicolons, no lists of three abstractions.
@@ -83,7 +83,7 @@ Script rules:
 
 Picture rules (the reel is a paper collage: black-and-white cut-out photos on coloured paper, with a few short film clips in taped paper frames):
 - Each beat has a layout and one to three pieces. A piece is a cut-out (a single object, described so an image model can draw it alone on a plain ground) or a film clip.
-- At most three film clips in the whole reel. Clips show hands and objects doing one simple action; never faces, never text, never brands.
+- Exactly three film clips in the whole reel: one in the hook (as its first piece), and two more on "film" beats spread through the rest, on the lines that describe an action. Clips show hands and objects doing one simple action; never faces, never text, never brands. Each clip is a different action.
 - "at" is the number of the sentence in that beat (counting from 0) on which the piece or label appears, so pictures land on the words they illustrate.
 - The stage must never be empty: in every beat at least one piece appears on sentence 0. Later pieces and labels can then arrive on later sentences.
 - Reuse names from the library list you are given whenever they fit; only invent a new piece when nothing there works. New names are lowercase with hyphens.
@@ -165,7 +165,7 @@ export function checkScript(s, known = new Set()) {
   const beats = s?.beats || []
   if (beats.length !== 6) out.push(`There must be exactly 6 beats; there are ${beats.length}.`)
   const total = beats.reduce((n, b) => n + words(b.say || ''), 0)
-  if (total < 65 || total > 95) out.push(`The script has ${total} spoken words; it must be between 70 and 90.`)
+  if (total < 80 || total > 112) out.push(`The script has ${total} spoken words; it must be between 85 and 110.`)
   const declared = new Set((s?.assets || []).map((a) => `${a.kind}:${a.name}`))
   let clips = 0
   beats.forEach((b, i) => {
@@ -205,7 +205,8 @@ export function checkScript(s, known = new Set()) {
   if (beats[0] && beats[0].layout !== 'hook') out.push('Beat 1 must use the hook layout.')
   if (beats[5] && beats[5].layout !== 'payoff') out.push('Beat 6 must use the payoff layout.')
   if (beats[0]?.say && !/\?/.test(beats[0].say)) out.push('The hook must end by asking the question.')
-  if (clips > 3) out.push(`There are ${clips} film clips; the limit is 3.`)
+  if (clips !== 3) out.push(`There are ${clips} film clips; there must be exactly 3 (one in the hook, two on "film" beats).`)
+  if (beats[0]?.layout === 'hook' && beats[0].pieces?.[0]?.kind !== 'clip') out.push('The first piece of the hook must be a film clip.')
   for (const a of s?.assets || []) if ((a.description || '').length < 8) out.push(`Asset "${a.name}" needs a real description.`)
   if (!(s?.sources || []).length) out.push('List at least one source with its URL.')
   return out

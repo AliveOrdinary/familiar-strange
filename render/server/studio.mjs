@@ -8,7 +8,7 @@
 // POST /reels/:id/revise { note }   rewrite with your note
 // POST /reels/:id/edit { says[] }   change the spoken text by hand
 // POST /reels/:id/approve-script    then its new assets are generated
-// POST /reels/:id/render | reject
+// POST /reels/:id/render | posted | reject
 // POST /pipeline/daily              for a scheduler: draft the next question if nothing is waiting
 import { readFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
@@ -214,7 +214,7 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
       const { known } = await knownAssets()
       const asSubmitted = { ...script, beats: script.beats.map((b) => ({ ...b, pieces: b.pieces.map((p) => (typeof p === 'string' ? { name: p, kind: 'piece' } : { name: p.clip || p.name, kind: p.clip ? 'clip' : 'piece', at: p.at })) })) }
       for (const b of asSubmitted.beats) for (const p of b.pieces) if (shipped(p.kind, p.name)) known.add(`${p.kind}:${p.name}`)
-      const problems = checkScript(asSubmitted, known)
+      const problems = checkScript(asSubmitted, known).filter((p) => !/film clip/.test(p))
       if (problems.length) return res.status(422).json({ error: problems.join(' ') })
       await setReel(id, { script, revision: (reel.revision || 1) + 1 })
       return res.json({ ok: true })
@@ -236,6 +236,11 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
       if (waiting.length) return res.status(409).json({ error: `Not approved yet: ${waiting.map((a) => a.name).join(', ')} (see the library)` })
       const out = enqueue(id, req.body?.voice)
       return res.status(out.error ? 409 : 202).json(out)
+    }
+
+    if (action === 'posted') {
+      await setReel(id, { status: 'published', published_at: new Date().toISOString() })
+      return res.json({ ok: true })
     }
 
     if (action === 'reject') {
