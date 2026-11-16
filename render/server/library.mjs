@@ -23,6 +23,7 @@ const clipPrompt = (d) =>
 export function mountLibrary(app, { supabase, publicDir, self }) {
   const dirs = { piece: join(publicDir, 'lib', 'pieces'), clip: join(publicDir, 'lib', 'clips') }
   for (const d of Object.values(dirs)) mkdirSync(d, { recursive: true })
+  const hooks = {} // set by the studio: what to do when an asset is approved
   const urlOf = (row) => (row.file ? `${self}/lib/${row.kind === 'piece' ? 'pieces' : 'clips'}/${row.file}` : null)
 
   const set = async (id, fields) => {
@@ -95,6 +96,7 @@ export function mountLibrary(app, { supabase, publicDir, self }) {
     if (action === 'approve') {
       if (!row.file) return res.status(409).json({ error: 'nothing to approve yet' })
       await set(id, { status: 'approved' })
+      Promise.resolve(hooks.onApproved?.()).catch((e) => console.error('onApproved failed:', e.message))
     } else if (action === 'reject') {
       await set(id, { status: 'rejected' })
     } else if (action === 'regenerate') {
@@ -125,9 +127,9 @@ export function mountLibrary(app, { supabase, publicDir, self }) {
 
   // name → status for a list of "kind:name" keys (missing ones are absent)
   async function statuses() {
-    const { data } = await supabase.from('library').select('kind,name,status,error')
+    const { data } = await supabase.from('library').select('id,kind,name,status,error,file,description')
     return Object.fromEntries((data || []).map((r) => [`${r.kind}:${r.name}`, r]))
   }
 
-  return { resolve, ensure, statuses }
+  return { resolve, ensure, statuses, hooks }
 }

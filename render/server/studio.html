@@ -1,130 +1,249 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Studio · Why we do this</title>
 <style>
-  :root { --ground:#c8372d; --paper:#f4efe4; --ink:#161412; --line:#d9d2c3; --muted:#6b655c; --ok:#1f5d46; }
-  * { box-sizing:border-box } body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.5 ui-sans-serif,system-ui,sans-serif }
-  header { background:var(--ground); color:var(--paper); padding:20px 24px; display:flex; justify-content:space-between; align-items:baseline; gap:16px; flex-wrap:wrap }
-  header h1 { margin:0; font:700 15px/1 ui-monospace,Menlo,monospace; letter-spacing:.25em; text-transform:uppercase }
-  header a { color:var(--paper); font-size:14px }
-  main { max-width:980px; margin:0 auto; padding:24px; display:grid; gap:36px }
-  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin:0 0 12px; display:flex; justify-content:space-between; align-items:center; gap:12px }
-  button { font:inherit; font-weight:600; padding:8px 13px; border:1px solid var(--ink); background:var(--ink); color:var(--paper); cursor:pointer }
-  button.ghost { background:transparent; color:var(--ink) } button:disabled { opacity:.45; cursor:default }
-  input, textarea { font:inherit; padding:9px 10px; border:1px solid var(--line); background:#fff; color:var(--ink); width:100% }
-  textarea { resize:vertical; line-height:1.4 }
-  .note { font-size:14px; color:var(--muted); margin:0 } .err { color:#a12018 } .okc { color:var(--ok) }
-  #flash { position:sticky; top:0; z-index:2; padding:10px 24px; background:#fff; border-bottom:1px solid var(--line); font-size:14px; display:none }
-  .card { background:#fff; border:1px solid var(--line); padding:16px; display:grid; gap:12px }
-  .stack { display:grid; gap:14px }
-  .top { display:flex; justify-content:space-between; gap:12px; align-items:baseline; flex-wrap:wrap }
-  .title { font-weight:700; font-size:18px } .pill { font:12px ui-monospace,Menlo,monospace; text-transform:uppercase; letter-spacing:.08em; padding:3px 8px; border:1px solid var(--line); color:var(--muted); white-space:nowrap }
-  .beat { display:grid; grid-template-columns:86px 1fr; gap:10px; align-items:start }
-  .beat .meta { font:12px/1.4 ui-monospace,Menlo,monospace; color:var(--muted); padding-top:9px }
-  .beat .extra { grid-column:2; font-size:13px; color:var(--muted); margin-top:-4px }
-  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center }
-  .assets { display:flex; gap:6px; flex-wrap:wrap } .assets span { font:12px ui-monospace,Menlo,monospace; padding:3px 7px; border:1px solid var(--line) }
-  .assets .approved { border-color:var(--ok); color:var(--ok) } .assets .error, .assets .missing, .assets .rejected { border-color:#a12018; color:#a12018 }
-  details summary { cursor:pointer; font-size:14px; color:var(--muted) } details ul { margin:8px 0 0; padding-left:18px; font-size:14px } details p { font-size:14px; white-space:pre-wrap; margin:8px 0 0 }
-  .q { display:grid; grid-template-columns:1fr auto; gap:6px 14px; padding:14px 0; border-top:1px solid var(--line) } .q:first-child { border-top:0 }
-  .q .t { font-weight:700 } .q .a { font-size:14px } .q .s { font-size:13px; color:var(--muted) } .q .act { grid-row:1 / span 3; grid-column:2; display:flex; gap:6px; align-items:start }
-  .q.queued .t::before { content:'✓ '; color:var(--ok) }
+  :root { --ground:#c8372d; --paper:#f4efe4; --card:#fffdf8; --ink:#161412; --line:#dcd4c3; --muted:#6b655c; --ok:#1f5d46; --bad:#a12018; }
+  * { box-sizing:border-box } html { -webkit-text-size-adjust:100% }
+  body { margin:0; background:var(--paper); color:var(--ink); font:17px/1.5 ui-sans-serif,system-ui,-apple-system,sans-serif; padding-bottom:env(safe-area-inset-bottom) }
+  a { color:inherit }
+  header { background:var(--ground); color:var(--paper); padding:14px 16px; display:flex; justify-content:space-between; align-items:center; gap:12px; position:sticky; top:0; z-index:5 }
+  header .brand { font:700 13px/1 ui-monospace,Menlo,monospace; letter-spacing:.2em; text-transform:uppercase; text-decoration:none }
+  header a.side { font-size:14px }
+  main { max-width:720px; margin:0 auto; padding:16px 16px 96px; display:grid; gap:28px }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.14em; color:var(--muted); margin:0 0 10px }
+  button, .btn { font:inherit; font-weight:600; min-height:46px; padding:10px 16px; border:1.5px solid var(--ink); background:var(--ink); color:var(--paper); cursor:pointer; border-radius:0; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; text-align:center }
+  button.ghost, .btn.ghost { background:transparent; color:var(--ink) } button.quiet { border-color:transparent; background:transparent; color:var(--muted); font-weight:500; padding:10px 8px }
+  button:disabled { opacity:.45; cursor:default } button.wide, .btn.wide { width:100% }
+  input, textarea { font:inherit; padding:11px 12px; border:1.5px solid var(--line); background:#fff; color:var(--ink); width:100%; border-radius:0 }
+  textarea { resize:vertical; line-height:1.45 }
+  .note { font-size:15px; color:var(--muted); margin:0 } .err { color:var(--bad) }
+  #flash { position:fixed; left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:9; padding:12px 14px; background:var(--ink); color:var(--paper); font-size:15px; display:none; box-shadow:0 6px 20px rgba(0,0,0,.25) }
+  #flash.bad { background:var(--bad) }
+  .stack { display:grid; gap:10px }
+  .item { background:var(--card); border:1px solid var(--line); padding:14px; display:grid; gap:4px; text-decoration:none; position:relative }
+  a.item::after { content:'›'; position:absolute; right:14px; top:50%; transform:translateY(-50%); font-size:24px; color:var(--muted) }
+  a.item { padding-right:38px } .item .t { font-weight:700 } .item .s { font-size:15px; color:var(--muted) } .item.need .s { color:var(--ink) }
+  .item.need { border-left:5px solid var(--ground) }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; background:var(--ground); margin-right:8px; animation:pulse 1.2s infinite } @keyframes pulse { 50% { opacity:.25 } }
+  @media (prefers-reduced-motion:reduce) { .dot { animation:none } }
+  .q { background:var(--card); border:1px solid var(--line); padding:14px; display:grid; gap:6px }
+  .q.picked { border-left:5px solid var(--ok) } .q .t { font-weight:700 } .q .a { font-size:15px } .q .s { font-size:14px; color:var(--muted) }
+  .q .act { display:flex; gap:8px; margin-top:6px } .q .act button { min-height:40px; padding:6px 14px; font-size:15px }
   form.add { display:grid; grid-template-columns:1fr auto; gap:8px }
-  @media (max-width:640px) { .beat { grid-template-columns:1fr } .beat .extra { grid-column:1 } .q { grid-template-columns:1fr } .q .act { grid-row:auto; grid-column:1 } }
+  .back { font-size:15px; color:var(--muted); text-decoration:none; display:inline-block; padding:4px 0 }
+  .title { font-size:24px; font-weight:800; line-height:1.2; margin:2px 0 0 }
+  .steps { display:grid; grid-template-columns:repeat(4,1fr); border:1.5px solid var(--ink) }
+  .steps button { min-height:52px; border:0; border-right:1.5px solid var(--ink); background:transparent; color:var(--ink); padding:6px 2px; font-size:14px; flex-direction:column; gap:1px; font-weight:600 }
+  .steps button:last-child { border-right:0 } .steps button small { font:11px ui-monospace,Menlo,monospace; color:var(--muted); font-weight:400 }
+  .steps button.on { background:var(--ink); color:var(--paper) } .steps button.on small { color:var(--paper); opacity:.75 }
+  .steps button.done small { color:var(--ok) } .steps button.on.done small { color:var(--paper) } .steps button.need:not(.on) { box-shadow:inset 0 -5px 0 var(--ground) }
+  .panel { display:grid; gap:14px }
+  .beat { display:grid; gap:6px } .beat .n { font:12px ui-monospace,Menlo,monospace; color:var(--muted) } .beat .say { font-size:18px; line-height:1.45 }
+  .beat .x { font-size:14px; color:var(--muted) }
+  .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center } .row.fill > * { flex:1 }
+  details summary { cursor:pointer; font-size:15px; color:var(--muted); padding:6px 0 } details ul { margin:6px 0 0; padding-left:18px; font-size:15px } details li { margin-bottom:6px }
+  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:10px } @media (min-width:620px) { .grid { grid-template-columns:repeat(3,1fr) } }
+  .pic { background:var(--card); border:1px solid var(--line); display:flex; flex-direction:column }
+  .pic .stage { aspect-ratio:1; display:flex; align-items:center; justify-content:center; padding:10px; color:var(--paper); font:13px ui-monospace,Menlo,monospace; text-align:center }
+  .pic img, .pic video { max-width:100%; max-height:100%; filter:drop-shadow(0 5px 5px rgba(0,0,0,.35)) } .pic video { filter:grayscale(1) contrast(1.4); border:6px solid var(--paper) }
+  .pic .b { padding:10px; display:grid; gap:8px; flex:1; align-content:start } .pic .nm { font-weight:700; font-size:15px; word-break:break-word } .pic .st { font-size:13px; color:var(--muted) }
+  .pic.approved .st { color:var(--ok) } .pic.error .st, .pic.missing .st, .pic.rejected .st { color:var(--bad) }
+  .pic button { min-height:40px; padding:6px 8px; font-size:15px; width:100% } .pic textarea { font-size:14px; min-height:70px }
+  video.player { width:100%; max-height:70vh; background:#000 }
+  .cap { white-space:pre-wrap; font-size:15px; background:#fff; border:1.5px solid var(--line); padding:12px; min-height:150px }
+  .sticky { position:sticky; bottom:calc(10px + env(safe-area-inset-bottom)); z-index:3; box-shadow:0 0 0 10px var(--paper) }
 </style></head><body>
-<header><h1>Why we do this · Studio</h1><a href="/library">Library of cut-outs and clips →</a></header>
-<div id="flash"></div>
-<main>
-  <section><h2><span>Reels in progress</span><button id="draft">Write the next question</button></h2><div id="reels" class="stack"></div></section>
-  <section><h2><span>Question bank</span><button id="refill" class="ghost">Find new questions</button></h2>
-    <div class="card">
-      <form class="add" id="add"><input name="title" placeholder="Add your own question, e.g. Why do we take our shoes off indoors?" aria-label="Your question"><button class="ghost">Add</button></form>
-      <div id="bank"></div>
-    </div>
-  </section>
-</main>
+<header><a class="brand" href="#/">Why we do this</a><a class="side" href="/library">Library</a></header>
+<div id="flash" role="status"></div>
+<main id="app"><p class="note">Loading…</p></main>
 <script>
 const $ = (s, el = document) => el.querySelector(s)
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const GROUND = { tomato: '#D9392B', forest: '#1F5D46', cobalt: '#2447C8', mustard: '#E3A72F', plum: '#5B2A4E' }
 const post = async (url, body) => {
   const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) })
   const j = await r.json().catch(() => ({}))
   if (!r.ok) throw new Error(j.error || 'Request failed')
   return j
 }
-const flash = (msg, bad) => { const f = $('#flash'); f.textContent = msg; f.className = bad ? 'err' : ''; f.style.display = msg ? 'block' : 'none' }
-const STATUS = { drafting: 'Claude is researching and writing', script_review: 'Script: waiting for you', script_approved: 'Assets', rendering: 'Rendering', video_review: 'Video: ready to check', error: 'Failed', approved: 'Approved', published: 'Published' }
-let typing = false
-const wordCount = (s) => s.replace(/\[[\d.]+\]/g, '').split(/\s+/).filter(Boolean).length
+let flashTimer
+const flash = (msg, bad) => { const f = $('#flash'); clearTimeout(flashTimer); f.textContent = msg; f.className = bad ? 'bad' : ''; f.style.display = msg ? 'block' : 'none'; if (msg) flashTimer = setTimeout(() => (f.style.display = 'none'), bad ? 9000 : 4500) }
+const wordCount = (s) => String(s || '').replace(/\[[\d.]+\]/g, '').split(/\s+/).filter(Boolean).length
+const ago = (t) => { const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 90 ? `${s}s` : `${Math.round(s / 60)} min` }
 
-function reelCard(r, jobs) {
-  const beats = r.script?.beats || []
-  const busy = jobs[`reel:${r.id}`]?.state === 'running'
-  const job = jobs[`reel:${r.id}`]
-  const review = r.status === 'script_review'
-  const words = beats.reduce((n, b) => n + wordCount(b.say || ''), 0)
-  const pieceNames = (b) => (b.pieces || []).map((p) => (typeof p === 'string' ? p : p.clip ? `🎞 ${p.clip}` : p.name)).join(', ')
-  const beatRows = beats.map((b, i) => `<div class="beat"><div class="meta">${i + 1} · ${esc(b.layout)}</div>
-      ${review ? `<textarea rows="2" data-say="${i}">${esc(b.say)}</textarea>` : `<div>${esc(b.say)}</div>`}
-      <div class="extra">${b.headline ? `Headline: ${esc(b.headline.join(' / '))} · ` : ''}${esc(pieceNames(b))}${(b.labels || []).length ? ' · Labels: ' + esc(b.labels.map((l) => l.text).join(', ')) : ''}${b.cite ? ' · ' + esc(b.cite) : ''}</div></div>`).join('')
+let D = null, lastKey = '', tab = {}, confirmDrop = null, openDesc = {}, showArchive = false
+
+// Where a reel stands, in the words the home screen uses.
+function stage(r) {
+  const job = D.jobs[`reel:${r.id}`]
+  const running = job?.state === 'running'
   const waiting = (r.assets || []).filter((a) => a.status !== 'approved')
-  const assets = (r.assets || []).length ? `<div class="assets">${r.assets.map((a) => `<span class="${a.status}" title="${esc(a.error || '')}">${a.kind === 'clip' ? '🎞 ' : ''}${esc(a.name)}: ${a.status}</span>`).join('')}</div>` : ''
-  const srcList = Array.isArray(r.script?.sources) ? r.script.sources : []
-  const sources = srcList.length ? `<details><summary>Sources Claude used (${srcList.length})</summary><ul>${srcList.map((s) => `<li>${esc(s.claim)}: <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a></li>`).join('')}</ul></details>` : ''
-  const caption = r.caption ? `<details><summary>Instagram caption</summary><p>${esc(r.caption)}</p></details>` : ''
-  let actions = ''
-  if (review) actions = `<div class="row"><button data-a="approve-script">Approve script</button><button class="ghost" data-a="edit">Save my edits</button><button class="ghost" data-a="reject">Drop this reel</button></div>
-      <div class="row" style="flex-wrap:nowrap"><input data-note placeholder="Or tell Claude what to change, e.g. the hook isn't answered by the end"><button class="ghost" data-a="revise">Revise</button></div>`
-  else if (r.status === 'script_approved') actions = `<div class="row"><button data-a="render" ${waiting.length || busy ? 'disabled' : ''}>Render video</button>${waiting.length ? `<span class="note">${busy ? 'Generating assets…' : `Approve ${waiting.length} asset(s) in the <a href="/library">library</a> first.`}</span>` : ''}</div>`
-  else if (r.status === 'video_review') actions = `<div class="row"><a href="${esc(r.video_url)}" target="_blank" rel="noopener"><button>Open video (${esc(r.duration_s)}s)</button></a><button class="ghost" data-a="render">Render again</button><button class="ghost" data-a="posted">Mark as posted</button><button class="ghost" data-a="reject">Drop this reel</button></div>`
-  else if (r.status === 'error') actions = `<div class="row">${beats.length ? '<button class="ghost" data-a="render">Try rendering again</button>' : ''}<button class="ghost" data-a="reject">Drop this reel</button></div>`
-  return `<div class="card" data-id="${r.id}"><div class="top"><div class="title">${esc(r.title || 'Untitled')}</div><span class="pill">${esc(STATUS[r.status] || r.status)}${busy && r.status !== 'drafting' ? ' · working' : ''}</span></div>
-    ${r.error ? `<p class="note err">${esc(r.error)}</p>` : ''}${job?.state === 'error' && !r.error ? `<p class="note err">${esc(job.message)}</p>` : ''}
-    ${beats.length ? `<p class="note">${words} spoken words · palette ${esc(r.script.palette)}</p>${beatRows}` : ''}
-    ${assets}${sources}${caption}${actions}</div>`
+  const making = waiting.filter((a) => a.status === 'generating').length
+  const toApprove = waiting.filter((a) => a.status === 'pending').length
+  const failed = waiting.filter((a) => ['error', 'missing', 'rejected'].includes(a.status)).length
+  if (r.status === 'drafting') return { step: 'script', busy: true, line: `Claude is researching and writing${job?.since ? ' · ' + ago(job.since) : ''}` }
+  if (r.status === 'script_review') return { step: 'script', need: true, line: r.error ? r.error : 'Script ready to review' }
+  if (r.status === 'script_approved') {
+    if (toApprove) return { step: 'pictures', need: true, line: `${toApprove} picture${toApprove > 1 ? 's' : ''} to approve${making || running ? ' · more on the way' : ''}` }
+    if (making || (running && waiting.length)) return { step: 'pictures', busy: true, line: `Making pictures · ${(r.assets.length - waiting.length)} of ${r.assets.length} ready` }
+    if (failed) return { step: 'pictures', need: true, line: `${failed} picture${failed > 1 ? 's' : ''} failed; regenerate` }
+    return { step: 'video', busy: true, line: 'Pictures done · video starting' }
+  }
+  if (r.status === 'rendering') return { step: 'video', busy: true, line: 'Rendering the video · about 90 seconds' }
+  if (r.status === 'video_review') return { step: 'video', need: true, line: `Video ready · ${r.duration_s}s` }
+  if (r.status === 'error') return { step: r.script ? 'video' : 'script', need: true, line: 'Failed: ' + (r.error || 'unknown error') }
+  return { step: 'post', line: r.status }
 }
-function bankRow(q) {
-  const s = (q.sources || [])[0] || {}
-  const queued = q.status === 'approved'
-  return `<div class="q ${queued ? 'queued' : ''}" data-id="${q.id}"><div class="t">${esc(q.title)}</div>
-    <div class="act">${queued ? '<button class="ghost" data-b="unqueue">Unpick</button>' : '<button data-b="queue">Pick</button>'}<button class="ghost" data-b="reject" aria-label="Remove">✕</button></div>
-    ${q.angle ? `<div class="a">${esc(q.angle)}</div>` : ''}
-    <div class="s">${s.author ? `${esc(s.author)}, ${esc(s.work)} (${esc(s.year)})` : esc(q.notes || '')}${s.url ? ` · <a href="${esc(s.url)}" target="_blank" rel="noopener">source</a>` : ''}${q.score ? ` · score ${q.score}` : ''}${q.example ? `<br>${esc(q.example)}` : ''}</div></div>`
+
+function home() {
+  const live = D.reels.filter((r) => !['rejected', 'published', 'approved'].includes(r.status)).map((r) => ({ r, s: stage(r) }))
+  const need = live.filter((x) => x.s.need), busy = live.filter((x) => !x.s.need)
+  const item = ({ r, s }) => `<a class="item ${s.need ? 'need' : ''}" href="#/reel/${r.id}"><div class="t">${esc(r.title || 'Untitled')}</div><div class="s ${r.status === 'error' ? 'err' : ''}">${s.busy ? '<span class="dot"></span>' : ''}${esc(s.line)}</div></a>`
+  const picked = D.bank.filter((q) => q.status === 'approved'), rest = D.bank.filter((q) => q.status !== 'approved')
+  const refilling = D.jobs.refill?.state === 'running'
+  const qrow = (q) => { const s = (q.sources || [])[0] || {}; const p = q.status === 'approved'
+    return `<div class="q ${p ? 'picked' : ''}" data-q="${q.id}"><div class="t">${esc(q.title)}</div>${q.angle ? `<div class="a">${esc(q.angle)}</div>` : ''}
+      <div class="s">${s.author ? `${esc(s.author)}, ${esc(s.work)} (${esc(s.year)})` : esc(q.notes || '')}${s.url ? ` · <a href="${esc(s.url)}" target="_blank" rel="noopener">source</a>` : ''}${q.score ? ` · ${q.score}/10` : ''}</div>
+      ${q.example ? `<div class="s">${esc(q.example)}</div>` : ''}
+      <div class="act">${p ? '<button class="ghost" data-b="unqueue">Picked ✓</button>' : '<button data-b="queue">Pick</button>'}<button class="quiet" data-b="reject">Remove</button></div></div>` }
+  const archive = D.reels.filter((r) => ['rejected', 'published'].includes(r.status))
+  return `
+    <section><h2>Needs you</h2><div class="stack">${need.map(item).join('') || '<p class="note">Nothing is waiting on you.</p>'}</div></section>
+    ${busy.length ? `<section><h2>Working</h2><div class="stack">${busy.map(item).join('')}</div></section>` : ''}
+    <section><h2>Questions</h2><div class="stack">
+      <button class="wide" data-g="draft" ${D.configured.claude ? '' : 'disabled'}>Write the next question</button>
+      <p class="note">${picked.length ? `Next up: “${esc(picked[0].title)}”` : rest.length ? 'Nothing picked, so the top-scored question goes next.' : 'The bank is empty.'}</p>
+      <form class="add" id="add"><input name="title" placeholder="Add your own question" aria-label="Your question"><button class="ghost">Add</button></form>
+      ${[...picked, ...rest].map(qrow).join('')}
+      <button class="ghost wide" data-g="refill" ${refilling || !D.configured.claude ? 'disabled' : ''}>${refilling ? `Researching new questions… ${ago(D.jobs.refill.since)}` : 'Find new questions'}</button>
+      ${D.jobs.refill?.state === 'error' ? `<p class="note err">Finding questions failed: ${esc(D.jobs.refill.message)}</p>` : ''}
+      ${D.configured.claude ? '' : '<p class="note err">The Claude API key (ANTHROPIC_API_KEY) is not set on the stack.</p>'}
+    </div></section>
+    ${archive.length ? `<section><button class="quiet" data-g="archive">${showArchive ? 'Hide' : 'Show'} posted and dropped (${archive.length})</button>
+      ${showArchive ? `<div class="stack">${archive.map((r) => `<div class="item" data-id="${r.id}"><div class="t">${esc(r.title || 'Untitled')}</div><div class="s">${r.status === 'published' ? 'Posted' : 'Dropped'}</div><div class="row"><button class="ghost" data-a="restore">Bring back</button></div></div>`).join('')}</div>` : ''}</section>` : ''}`
 }
-async function load() {
-  if (typing) return
-  const d = await fetch('/studio.json').then((r) => r.json())
-  const live = (d.reels || []).filter((r) => !['rejected', 'published', 'approved'].includes(r.status))
-  const safe = (fn, x) => { try { return fn(x) } catch (e) { console.error(e); return `<div class="card"><p class="note err">This entry could not be shown: ${esc(e.message)}</p></div>` } }
-  $('#reels').innerHTML = live.map((r) => safe((x) => reelCard(x, d.jobs || {}), r)).join('') || '<p class="note">Nothing in progress. Pick questions below, then "Write the next question".</p>'
-  const queued = d.bank.filter((q) => q.status === 'approved'), rest = d.bank.filter((q) => q.status !== 'approved')
-  $('#bank').innerHTML = [...queued, ...rest].map((q) => safe(bankRow, q)).join('') || '<p class="note" style="padding-top:12px">The bank is empty. "Find new questions" asks Claude to research about ten.</p>'
-  const refilling = d.jobs?.refill?.state === 'running'
-  $('#refill').disabled = refilling; $('#refill').textContent = refilling ? 'Researching… (a few minutes)' : 'Find new questions'
-  if (d.jobs?.refill?.state === 'error') flash('Finding questions failed: ' + d.jobs.refill.message, true)
-  if (!d.configured.claude) flash('The Claude API key is not set on the stack yet (ANTHROPIC_API_KEY), so nothing can be researched or written.', true)
-}
-document.addEventListener('focusin', (e) => { if (e.target.matches('.card textarea, .card input')) typing = true })
-document.addEventListener('focusout', (e) => { if (e.target.matches('.card textarea, .card input')) typing = false })
-document.addEventListener('click', async (e) => {
-  const a = e.target.closest('button[data-a]'), b = e.target.closest('button[data-b]')
-  if (!a && !b) return
-  const btn = a || b; btn.disabled = true
-  try {
-    if (b) await post(`/bank/${b.closest('.q').dataset.id}/${b.dataset.b}`)
+
+function reelView(r) {
+  const s = stage(r)
+  const beats = r.script?.beats || []
+  const hasVideo = !!r.video_url
+  const scriptDone = !['drafting', 'script_review'].includes(r.status) && beats.length
+  const waiting = (r.assets || []).filter((a) => a.status !== 'approved')
+  const picsDone = scriptDone && !waiting.length
+  const cur = tab[r.id] || s.step
+  const steps = [['script', 'Script', scriptDone], ['pictures', 'Pictures', picsDone], ['video', 'Video', hasVideo], ['post', 'Post', r.status === 'published']]
+  const avail = { script: true, pictures: !!scriptDone, video: picsDone || hasVideo || r.status === 'rendering' || (r.status === 'error' && beats.length), post: hasVideo }
+  const bar = `<div class="steps">${steps.map(([k, label, done], i) => `<button data-tab="${k}" class="${cur === k ? 'on' : ''} ${done ? 'done' : ''} ${s.need && s.step === k ? 'need' : ''}" ${avail[k] ? '' : 'disabled'}>${label}<small>${done ? 'done' : s.step === k ? (s.busy ? 'working' : 'your turn') : i + 1}</small></button>`).join('')}</div>`
+  const drop = confirmDrop === r.id ? `<div class="row"><span class="note">Drop this reel?</span><button class="ghost" data-a="reject">Yes, drop it</button><button class="quiet" data-g="nodrop">Keep</button></div>` : `<button class="quiet" data-g="drop">Drop this reel</button>`
+  let body = ''
+
+  if (cur === 'script') {
+    if (r.status === 'drafting') body = `<p class="note"><span class="dot"></span>${esc(s.line)}. This usually takes one to three minutes.</p>`
+    else if (!beats.length) body = `<p class="note err">${esc(r.error || 'No script was written.')}</p>`
     else {
-      const c = a.closest('.card'), act = a.dataset.a
-      const says = [...c.querySelectorAll('[data-say]')].map((t) => t.value)
-      if (act === 'approve-script' && says.length) await post(`/reels/${c.dataset.id}/edit`, { says })
-      await post(`/reels/${c.dataset.id}/${act}`, act === 'edit' ? { says } : act === 'revise' ? { note: $('[data-note]', c).value } : {})
-      flash({ edit: 'Edits saved.', revise: 'Claude is revising; this takes a minute or two.', 'approve-script': 'Script approved. Any new cut-outs and clips are being generated; approve them in the library.', render: 'Rendering; about 90 seconds.', posted: 'Marked as posted.' }[act] || '')
+      const review = r.status === 'script_review'
+      const words = beats.reduce((n, b) => n + wordCount(b.say), 0)
+      const names = (b) => (b.pieces || []).map((p) => (typeof p === 'string' ? p : p.clip ? `film: ${p.clip}` : p.name)).join(', ')
+      const src = Array.isArray(r.script.sources) ? r.script.sources : []
+      body = `${r.error && review ? `<p class="note err">${esc(r.error)}</p>` : ''}<p class="note">${words} spoken words · ${esc(r.script.palette)} palette${review ? ' · numbers in brackets are pauses in seconds' : ''}</p>
+        ${beats.map((b, i) => `<div class="beat"><div class="n">${i + 1}${b.headline ? ' · ' + esc(b.headline.join(' / ')) : ''}</div>
+          ${review ? `<textarea rows="3" data-say="${i}">${esc(b.say)}</textarea>` : `<div class="say">${esc(b.say)}</div>`}
+          <div class="x">Shows: ${esc(names(b))}${(b.labels || []).length ? ' · words on screen: ' + esc(b.labels.map((l) => l.text).join(', ')) : ''}${b.cite ? ' · ' + esc(b.cite) : ''}</div></div>`).join('')}
+        ${src.length ? `<details><summary>Sources Claude used (${src.length})</summary><ul>${src.map((x) => `<li>${esc(x.claim)}: <a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a></li>`).join('')}</ul></details>` : ''}
+        ${review ? `<div class="stack"><textarea rows="2" data-note placeholder="Tell Claude what to change, e.g. the hook isn’t answered by the end"></textarea><div class="row fill"><button class="ghost" data-a="revise">Ask Claude to revise</button><button class="ghost" data-a="edit">Save my edits</button></div></div>
+          <button class="wide sticky" data-a="approve-script">Approve script</button>` : ''}`
     }
-    typing = false; await load()
-  } catch (err) { flash(err.message, true); btn.disabled = false }
+  }
+
+  if (cur === 'pictures') {
+    const ground = GROUND[r.script?.palette] || GROUND.tomato
+    const ready = (r.assets || []).filter((a) => a.status === 'pending')
+    const card = (a) => {
+      const media = a.status === 'generating' ? '<span><span class="dot"></span>making…</span>' : !a.url ? '<span>nothing yet</span>'
+        : a.kind === 'clip' ? `<video src="${a.url}" autoplay loop muted playsinline></video>` : `<img src="${a.url}" alt="${esc(a.name)}" loading="lazy">`
+      const label = a.builtin ? 'ready' : { approved: 'approved', pending: 'needs your OK', generating: 'being made', error: 'failed', missing: 'not made yet', rejected: 'rejected' }[a.status] || a.status
+      const can = a.id && a.status !== 'generating'
+      const od = openDesc[a.id]
+      return `<div class="pic ${a.status}" data-lib="${a.id || ''}"><div class="stage" style="background:${ground}">${media}</div><div class="b">
+        <div class="nm">${a.kind === 'clip' ? 'Film: ' : ''}${esc(a.name)}</div><div class="st">${esc(label)}${a.error ? ': ' + esc(a.error) : ''}</div>
+        ${can && a.status !== 'approved' && a.url ? '<button data-l="approve">Approve</button>' : ''}
+        ${can ? (od ? `<textarea data-desc aria-label="Description">${esc(a.description)}</textarea><button class="ghost" data-l="regenerate">Make it again</button>` : `<button class="ghost" data-g="desc" data-for="${a.id}">Redo…</button>`) : ''}
+      </div></div>`
+    }
+    body = `<p class="note">${(r.assets.length - waiting.length)} of ${r.assets.length} ready. ${waiting.length ? 'The video renders by itself once every picture is approved.' : 'All set.'}</p>
+      ${r.error && r.status === 'script_approved' ? `<p class="note err">${esc(r.error)}</p>` : ''}
+      ${ready.length > 1 ? `<button class="wide" data-g="approveall">Approve all ${ready.length} that are ready</button>` : ''}
+      <div class="grid">${[...r.assets].sort((a, b) => (a.status === 'approved') - (b.status === 'approved')).map(card).join('')}</div>`
+  }
+
+  if (cur === 'video') {
+    if (r.status === 'rendering' || (s.busy && s.step === 'video')) body = `<p class="note"><span class="dot"></span>${esc(s.line)}</p>`
+    else if (r.status === 'error') body = `<p class="note err">${esc(r.error || 'The render failed.')}</p><button class="wide" data-a="render">Try again</button>`
+    else if (hasVideo) body = `<video class="player" src="${esc(r.video_url)}" controls playsinline preload="metadata"></video>
+      <div class="row fill"><button data-tab="post">Looks good, next</button><button class="ghost" data-a="render">Render again</button></div>`
+    else body = `<button class="wide" data-a="render">Render video</button>`
+  }
+
+  if (cur === 'post') {
+    body = `<a class="btn wide" href="/reels/${r.id}/download">Download video (${esc(r.duration_s)}s)</a>
+      <div class="stack"><h2 style="margin:6px 0 0">Caption</h2><textarea class="cap" data-cap readonly>${esc(r.caption || '')}</textarea><button class="ghost wide" data-g="copy">Copy caption</button></div>
+      ${r.status === 'published' ? '<p class="note">Marked as posted.</p>' : '<button class="wide" data-a="posted">Mark as posted</button>'}`
+  }
+
+  return `<div><a class="back" href="#/">‹ All reels</a><h1 class="title">${esc(r.title || 'Untitled')}</h1></div>${bar}<div class="panel" data-id="${r.id}">${body}</div>${['published', 'rejected'].includes(r.status) ? '' : drop}`
+}
+
+function route() { const m = location.hash.match(/^#\/reel\/([0-9a-f-]+)/); return m ? m[1] : null }
+function paint(force) {
+  if (!D) return
+  const id = route()
+  const typing = document.activeElement && document.activeElement.matches('textarea, input')
+  const key = JSON.stringify([D, id, tab, confirmDrop, openDesc, showArchive])
+  if (!force && (key === lastKey || typing)) return
+  lastKey = key
+  const r = id && D.reels.find((x) => x.id === id)
+  $('#app').innerHTML = id ? (r ? reelView(r) : '<a class="back" href="#/">‹ All reels</a><p class="note">That reel is no longer here.</p>') : home()
+}
+async function load(force) {
+  try { D = await fetch('/studio.json').then((r) => r.json()); paint(force) }
+  catch (e) { if (!D) $('#app').innerHTML = `<p class="note err">The studio could not load: ${esc(e.message)}</p>` }
+}
+const act = async (fn, okMsg) => { try { await fn(); if (okMsg) flash(okMsg); if (document.activeElement) document.activeElement.blur(); await load(true) } catch (e) { flash(e.message, true); paint(true) } }
+
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b) return
+  const id = route()
+  if (b.dataset.tab) { tab[id] = b.dataset.tab; return paint(true) }
+  if (b.dataset.g) {
+    const g = b.dataset.g
+    if (g === 'drop') { confirmDrop = id; return paint(true) }
+    if (g === 'nodrop') { confirmDrop = null; return paint(true) }
+    if (g === 'archive') { showArchive = !showArchive; return paint(true) }
+    if (g === 'desc') { openDesc[b.dataset.for] = true; return paint(true) }
+    if (g === 'copy') { const t = $('[data-cap]'); t.focus(); t.select(); t.setSelectionRange(0, 99999); let ok = false; try { ok = document.execCommand('copy') } catch {} t.blur(); return flash(ok ? 'Caption copied.' : 'Select the caption and copy it by hand.', !ok) }
+    b.disabled = true
+    if (g === 'draft') return act(() => post('/reels/draft'), 'Claude is researching and writing. It will appear under Working.')
+    if (g === 'refill') return act(() => post('/bank/refill'), 'Claude is researching new questions; this takes a few minutes.')
+    if (g === 'approveall') { const r = D.reels.find((x) => x.id === id); return act(async () => { for (const a of r.assets.filter((x) => x.status === 'pending' && x.id)) await post(`/library/${a.id}/approve`) }, 'Approved.') }
+  }
+  if (b.dataset.b) { b.disabled = true; return act(() => post(`/bank/${b.closest('[data-q]').dataset.q}/${b.dataset.b}`)) }
+  if (b.dataset.l) { const c = b.closest('[data-lib]'); b.disabled = true; const d = $('[data-desc]', c); delete openDesc[c.dataset.lib]
+    return act(() => post(`/library/${c.dataset.lib}/${b.dataset.l}`, d ? { description: d.value } : {}), b.dataset.l === 'regenerate' ? 'Making it again.' : '') }
+  if (b.dataset.a) {
+    const a = b.dataset.a, host = b.closest('[data-id]'), rid = host?.dataset.id || id
+    const says = [...document.querySelectorAll('[data-say]')].map((t) => t.value)
+    const note = $('[data-note]')?.value
+    b.disabled = true
+    return act(async () => {
+      if (a === 'approve-script' && says.length) await post(`/reels/${rid}/edit`, { says })
+      await post(`/reels/${rid}/${a}`, a === 'edit' ? { says } : a === 'revise' ? { note } : {})
+      if (a === 'approve-script') tab[rid] = 'pictures'
+      if (a === 'render') tab[rid] = 'video'
+      if (a === 'reject' || a === 'posted') { confirmDrop = null; delete tab[rid]; if (a === 'reject') location.hash = '#/' }
+    }, { edit: 'Edits saved.', revise: 'Claude is revising; a minute or two.', 'approve-script': 'Approved. Pictures are being made.', render: 'Rendering; about 90 seconds.', posted: 'Marked as posted.', reject: 'Dropped. It is under “posted and dropped” if you want it back.', restore: 'Brought back.' }[a])
+  }
 })
-$('#draft').addEventListener('click', async () => { try { await post('/reels/draft'); flash('Claude is researching and writing; this takes a minute or two.'); load() } catch (e) { flash(e.message, true) } })
-$('#refill').addEventListener('click', async () => { try { await post('/bank/refill'); flash('Claude is researching new questions; this takes a few minutes.'); load() } catch (e) { flash(e.message, true) } })
-$('#add').addEventListener('submit', async (e) => { e.preventDefault(); try { await post('/bank', Object.fromEntries(new FormData(e.target))); e.target.reset(); load() } catch (err) { flash(err.message, true) } })
-const tick = () => load().catch((e) => flash('The page could not load its data: ' + e.message, true))
-tick(); setInterval(tick, 5000)
+document.addEventListener('submit', (e) => { if (e.target.id !== 'add') return; e.preventDefault(); const body = Object.fromEntries(new FormData(e.target)); act(() => post('/bank', body), 'Added and picked.') })
+window.addEventListener('hashchange', () => { confirmDrop = null; window.scrollTo(0, 0); paint(true) })
+load(true); setInterval(load, 4000)
 </script></body></html>

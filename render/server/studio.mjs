@@ -134,16 +134,36 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
       const name = spec.clip || spec.name
       const key = `${kind}:${name}`
       if (seen.has(key)) continue
-      seen.set(key, { kind, name, status: shipped(kind, name) ? 'approved' : lib[key]?.status || 'missing', error: lib[key]?.error || null })
+      const dir = kind === 'clip' ? 'clips' : 'pieces'
+      const row = lib[key]
+      if (shipped(kind, name)) seen.set(key, { kind, name, status: 'approved', builtin: true, url: `/${dir}/${name}.${kind === 'clip' ? 'mp4' : 'png'}` })
+      else seen.set(key, { kind, name, id: row?.id || null, status: row?.status || 'missing', error: row?.error || null, description: row?.description || null, url: row?.file ? `/lib/${dir}/${row.file}` : null })
     }
     return [...seen.values()]
   }
+
+  // Once every picture of an approved script is approved, the video renders
+  // without anyone having to ask.
+  async function autoRender() {
+    const { data: reels } = await supabase.from('reels').select('id,script,status,video_url').eq('status', 'script_approved').is('video_url', null)
+    if (!reels?.length) return
+    const { lib } = await knownAssets()
+    for (const r of reels) {
+      if (jobs[`reel:${r.id}`]?.state === 'running') continue
+      const assets = assetsOf(r.script, lib)
+      if (assets.length && assets.every((a) => a.status === 'approved')) {
+        console.log(`studio: all pictures approved for ${r.id}; rendering`)
+        enqueue(r.id)
+      }
+    }
+  }
+  library.hooks.onApproved = autoRender
 
   // ---- routes -------------------------------------------------------------
   app.get('/studio.json', async (_req, res) => {
     const [{ data: bank }, { data: reels }, { lib }] = await Promise.all([
       supabase.from('topics').select('*').in('status', ['proposed', 'approved']).order('score', { ascending: false, nullsFirst: false }).limit(100),
-      supabase.from('reels').select('id,topic_id,status,script,caption,factcheck,review_notes,video_url,duration_s,error,revision,updated_at').order('updated_at', { ascending: false }).limit(15),
+      supabase.from('reels').select('id,topic_id,status,script,caption,factcheck,review_notes,video_url,duration_s,error,revision,updated_at').order('updated_at', { ascending: false }).limit(40),
       knownAssets(),
     ])
     res.json({
@@ -224,7 +244,8 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
       if (reel.status !== 'script_review') return res.status(409).json({ error: `This reel is "${reel.status}", not waiting for script review` })
       await setReel(id, { status: 'script_approved', error: null })
       run(key, async () => {
-        try { await makeAssets(reel) } catch (e) { await setReel(id, { error: 'Assets: ' + String(e.message).slice(0, 400) }); throw e }
+        try { await makeAssets(reel) } catch (e) { await setReel(id, { error: 'Pictures: ' + String(e.message).slice(0, 400) }); throw e }
+        await autoRender()
       })
       return res.status(202).json({ ok: true })
     }
@@ -238,6 +259,11 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
       return res.status(out.error ? 409 : 202).json(out)
     }
 
+    if (action === 'restore') {
+      await setReel(id, { status: reel.video_url ? 'video_review' : reel.script ? 'script_review' : 'error' })
+      return res.json({ ok: true })
+    }
+
     if (action === 'posted') {
       await setReel(id, { status: 'published', published_at: new Date().toISOString() })
       return res.json({ ok: true })
@@ -248,6 +274,18 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
       return res.json({ ok: true })
     }
     res.status(400).json({ error: 'unknown action' })
+  })
+
+  // Same-origin download so a phone saves the file instead of opening a player.
+  app.get('/reels/:id/download', async (req, res) => {
+    const { data: reel } = await supabase.from('reels').select('video_url,review_notes').eq('id', req.params.id).maybeSingle()
+    if (!reel?.video_url) return res.status(404).send('No video yet')
+    const upstream = await fetch(reel.video_url)
+    if (!upstream.ok) return res.status(502).send('The video could not be fetched')
+    const name = (reel.review_notes || 'reel').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'reel'
+    res.setHeader('Content-Type', 'video/mp4')
+    res.setHeader('Content-Disposition', `attachment; filename="${name}.mp4"`)
+    res.send(Buffer.from(await upstream.arrayBuffer()))
   })
 
   app.get('/studio', (_req, res) => res.type('html').send(readFileSync(join(here, 'studio.html'), 'utf8')))
