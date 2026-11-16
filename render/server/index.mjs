@@ -1,4 +1,4 @@
-// @familiar.strange render server.
+// @the.familiarstrange render server.
 //
 // POST /render { reel_id, voice? }  → 202, queued. Renders one reel at a time.
 // Flow: reels.script (collage beats) → TTS per beat (cached) → measure durations →
@@ -32,7 +32,7 @@ const BREATH_FRAMES = 12 // silence after each beat
 const HOOK_EXTRA_FRAMES = 12 // let the question land before the first beat
 const PORT = Number(process.env.PORT || 3123)
 const SELF = process.env.PUBLIC_HOST || `http://127.0.0.1:${PORT}`
-const HANDLE = process.env.IG_HANDLE || '@familiar.strange'
+const HANDLE = process.env.IG_HANDLE || '@the.familiarstrange'
 
 for (const k of ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']) {
   if (!process.env[k]) {

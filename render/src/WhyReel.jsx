@@ -72,7 +72,7 @@ const BeatLabel = ({ text, n }) => (
   </Rise>
 )
 
-export const WhyReel = ({ lines = [], number = 1, handle = '@familiar.strange', ambientSrc = null }) => {
+export const WhyReel = ({ lines = [], number = 1, handle = '@the.familiarstrange', ambientSrc = null }) => {
   const frame = useCurrentFrame()
   const beats = lines.filter((l) => l.kind === 'beat')
   const current = lines.findIndex((_, i) => frame < lineStart(lines, i + 1))

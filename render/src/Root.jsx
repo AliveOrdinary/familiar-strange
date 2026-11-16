@@ -20,7 +20,7 @@ const durationFromLines = ({ props }) => ({
 // preview the pans.
 const sample = {
   number: 1,
-  handle: '@familiar.strange',
+  handle: '@the.familiarstrange',
   lines: [
     {
       kind: 'hook',

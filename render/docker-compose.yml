@@ -31,7 +31,7 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5-5}
       CALLBACK_URL: ${CALLBACK_URL:-}
-      IG_HANDLE: ${IG_HANDLE:-@familiar.strange}
+      IG_HANDLE: ${IG_HANDLE:-@the.familiarstrange}
       PORT: "3123"
     ports:
       - "3123:3123"
