@@ -75,7 +75,7 @@ Your job now is to research one question and write the reel.
 ${RESEARCH}
 
 Script rules:
-- Six beats. 85 to 115 spoken words in total, which is about 35 to 40 seconds.
+- Six beats. 70 to 90 spoken words in total, which with pauses is about 35 to 40 seconds. Count them; over 90 is too long.
 - Beat 1 is the hook: a concrete everyday contrast or moment, ending in the question. The rest of the script MUST answer exactly that question; the last beat states the answer in a line the viewer could repeat to a friend.
 - One idea per beat. Name the anchor author and year aloud in the beat where the finding appears.
 - Write for the ear: short sentences, contractions, no brackets, no semicolons, no lists of three abstractions.
@@ -85,6 +85,7 @@ Picture rules (the reel is a paper collage: black-and-white cut-out photos on co
 - Each beat has a layout and one to three pieces. A piece is a cut-out (a single object, described so an image model can draw it alone on a plain ground) or a film clip.
 - At most three film clips in the whole reel. Clips show hands and objects doing one simple action; never faces, never text, never brands.
 - "at" is the number of the sentence in that beat (counting from 0) on which the piece or label appears, so pictures land on the words they illustrate.
+- The stage must never be empty: in every beat at least one piece appears on sentence 0. Later pieces and labels can then arrive on later sentences.
 - Reuse names from the library list you are given whenever they fit; only invent a new piece when nothing there works. New names are lowercase with hyphens.
 - Layouts:
   hook: headline of 1 or 2 lines (each at most 9 characters, it is set very large), plus up to 3 pieces.
@@ -164,7 +165,7 @@ export function checkScript(s, known = new Set()) {
   const beats = s?.beats || []
   if (beats.length !== 6) out.push(`There must be exactly 6 beats; there are ${beats.length}.`)
   const total = beats.reduce((n, b) => n + words(b.say || ''), 0)
-  if (total < 80 || total > 120) out.push(`The script has ${total} spoken words; it must be between 85 and 115.`)
+  if (total < 65 || total > 95) out.push(`The script has ${total} spoken words; it must be between 70 and 90.`)
   const declared = new Set((s?.assets || []).map((a) => `${a.kind}:${a.name}`))
   let clips = 0
   beats.forEach((b, i) => {
@@ -192,6 +193,7 @@ export function checkScript(s, known = new Set()) {
     for (const l of b.labels || []) if ((l.text || '').length > 18) out.push(`Beat ${n}: label "${l.text}" is over 18 characters.`)
     if (b.cite && b.cite.length > 40) out.push(`Beat ${n}: cite "${b.cite}" is over 40 characters; shorten the title.`)
     const ats = [...pieces.map((p) => p.at), ...(b.labels || []).map((l) => l.at), b.citeAt].filter((a) => a != null)
+    if (pieces.length && !pieces.some((p) => !p.at)) out.push(`Beat ${n}: no piece appears on sentence 0, so the stage starts empty; give one piece "at": 0.`)
     if (ats.some((a) => a >= sentences)) out.push(`Beat ${n} has ${sentences} sentence(s), so "at" values must be below ${sentences}.`)
     for (const p of pieces) {
       if (!slug(p.name)) out.push(`Beat ${n}: piece name "${p.name}" must be lowercase letters, digits and hyphens.`)
