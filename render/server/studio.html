@@ -180,7 +180,8 @@ function reelView(r) {
     if (r.status === 'rendering' || (s.busy && s.step === 'video')) body = `<p class="note"><span class="dot"></span>${esc(s.line)}</p>`
     else if (r.status === 'error') body = `<p class="note err">${esc(r.error || 'The render failed.')}</p><button class="wide" data-a="render">Try again</button>`
     else if (hasVideo) body = `<video class="player" src="${esc(r.video_url)}" controls playsinline preload="metadata"></video>
-      <div class="row fill"><button data-tab="post">Looks good, next</button><button class="ghost" data-a="render">Render again</button></div>`
+      <a class="btn wide" href="/reels/${r.id}/download">Download video (${esc(r.duration_s)}s)</a>
+      <div class="row fill"><button class="ghost" data-tab="post">Caption and posting</button><button class="ghost" data-a="render">Render again</button></div>`
     else body = `<button class="wide" data-a="render">Render video</button>`
   }
 
