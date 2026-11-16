@@ -6,7 +6,7 @@
 const IMAGE_MODEL = process.env.VERTEX_IMAGE_MODEL || 'gemini-3.1-flash-image'
 const VIDEO_MODEL = process.env.VERTEX_VIDEO_MODEL || 'veo-3.1-fast-generate-001'
 const VIDEO_REGION = process.env.VERTEX_VIDEO_REGION || 'us-central1'
-const TEXT_MODEL = process.env.VERTEX_TEXT_MODEL || 'gemini-2.5-flash'
+const TEXT_MODEL = process.env.VERTEX_TEXT_MODEL || 'gemini-3.1-flash-lite'
 
 let creds = null
 let token = { value: null, expires: 0 }
@@ -106,9 +106,9 @@ export async function generateVideo(prompt, { seconds = 4, image } = {}) {
 const TEXT_CANDIDATES = [
   [TEXT_MODEL, 'global'],
   [TEXT_MODEL, 'us-central1'],
-  ['gemini-3.1-flash', 'global'],
-  ['gemini-3-flash', 'global'],
-  ['gemini-2.5-flash-lite', 'us-central1'],
+  ['gemini-3-flash-preview', 'global'],
+  ['gemini-3-flash', 'us-central1'],
+  ['gemini-3.1-pro', 'global'],
   [IMAGE_MODEL, 'global'],
 ]
 let textModel = null // [model, region] that worked
@@ -141,7 +141,7 @@ async function tryModel(cand, contents, schema, temperature) {
     return (body.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('')
   }
   const tell = { text: `Answer with JSON only, no other text, matching this structure: ${JSON.stringify(cleanSchema(schema))}` }
-  if (isImage) return parseJson(await text({ temperature, responseModalities: ['TEXT'] }, tell))
+  if (isImage) return parseJson(await text({ temperature, responseModalities: ['TEXT', 'IMAGE'] }, tell))
   try {
     return parseJson(await text({ temperature, responseMimeType: 'application/json', responseSchema: cleanSchema(schema) }))
   } catch (e) {
