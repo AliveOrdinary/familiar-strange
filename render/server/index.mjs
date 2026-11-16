@@ -22,6 +22,7 @@ import { synthesize, ttsCacheKey, listVoices } from './tts.mjs'
 import { parseSay, stripPauses, captionPhrases } from '../shared/captions.js'
 import { mountLibrary } from './library.mjs'
 import { mountStudio } from './studio.mjs'
+import { mountCatalog } from './catalog.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(here, '..')
@@ -253,6 +254,7 @@ app.post('/render', (req, res) => {
 })
 
 mountStudio(app, { supabase, publicDir: PUBLIC_DIR, library, enqueue })
+mountCatalog(app, { supabase, library })
 
 app.get('/health', (_req, res) => res.json({ ok: true, busy, queued: queue.length }))
 

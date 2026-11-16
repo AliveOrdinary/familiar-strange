@@ -10,7 +10,7 @@
 // POST /reels/:id/approve-script    then its new assets are generated
 // POST /reels/:id/render | posted | reject
 // POST /pipeline/daily              for a scheduler: draft the next question if nothing is waiting
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { research, claudeConfigured } from './claude.mjs'
@@ -39,7 +39,11 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
   // Everything a script may already use: approved or pending library entries.
   async function knownAssets() {
     const lib = await library.statuses()
-    const known = new Set(Object.entries(lib).filter(([, r]) => r.status !== 'rejected' && r.status !== 'error').map(([k]) => k))
+    const known = new Set(Object.entries(lib).filter(([, r]) => ['approved', 'pending', 'generating'].includes(r.status)).map(([k]) => k))
+    // pieces and clips that ship with the code
+    for (const [kind, dir, ext] of [['piece', 'pieces', '.png'], ['clip', 'clips', '.mp4']]) {
+      try { for (const f of readdirSync(join(publicDir, dir))) if (f.endsWith(ext) && !f.startsWith('_')) known.add(`${kind}:${f.slice(0, -ext.length)}`) } catch {}
+    }
     return { lib, known }
   }
 
@@ -77,14 +81,22 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
 
   // ---- scripts ------------------------------------------------------------
   async function write(reelId, topic, { note, previous } = {}) {
-    const { known } = await knownAssets()
-    const names = [...known].sort().map((k) => `- ${k.replace(':', ': ')}`).join('\n') || '(empty)'
+    const { lib, known } = await knownAssets()
+    // Show Claude what each asset is. With a big library, only this theme's
+    // assets (and untagged ones) are listed, so the prompt stays small.
+    const theme = topic.theme
+    const entries = [...known].map((k) => {
+      const r = lib[k]
+      return { k, theme: r?.theme || null, desc: r?.description || '' }
+    }).filter((e) => !theme || known.size <= 120 || !e.theme || e.theme === theme)
+    entries.sort((a, b) => a.k.localeCompare(b.k))
+    const names = entries.slice(0, 200).map((e) => `- ${e.k.replace(':', ': ')}${e.desc ? ' — ' + e.desc.slice(0, 90) : ''}`).join('\n') || '(empty)'
     const src = (topic.sources || [])[0]
     let user = `Question: ${topic.title}\n`
     if (topic.angle) user += `Answer it should build to (verify this, and improve it if the research says otherwise): ${topic.angle}\n`
     if (src?.author) user += `Suggested anchor (confirm by search): ${src.author}, ${src.work || ''} (${src.year || ''})\n`
     if (topic.example) user += `Possible example: ${topic.example}\n`
-    user += `\nLibrary (kind: name) you can reuse:\n${names}`
+    user += `\nLibrary (kind: name — what it shows) you can reuse. Prefer these over inventing new assets:\n${names}`
     if (previous) user += `\n\nThis is a revision. The previous script was:\n${JSON.stringify({ beats: previous.beats.map((b) => ({ layout: b.layout, headline: b.headline, say: b.say })) })}\n\nThe reviewer's note, which you must address: ${note}`
     const { result, usage, model } = await research({ system: SCRIPT_SYSTEM, user, tool: SCRIPT_TOOL, maxSearches: 8, check: (s) => checkScript(s, known) })
     await setReel(reelId, {

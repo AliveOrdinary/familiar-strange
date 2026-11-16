@@ -6,6 +6,7 @@
 const IMAGE_MODEL = process.env.VERTEX_IMAGE_MODEL || 'gemini-3.1-flash-image'
 const VIDEO_MODEL = process.env.VERTEX_VIDEO_MODEL || 'veo-3.1-fast-generate-001'
 const VIDEO_REGION = process.env.VERTEX_VIDEO_REGION || 'us-central1'
+const TEXT_MODEL = process.env.VERTEX_TEXT_MODEL || 'gemini-2.5-flash'
 
 let creds = null
 let token = { value: null, expires: 0 }
@@ -53,24 +54,35 @@ async function call(url, payload) {
   return body
 }
 
-// Returns a PNG/JPEG buffer.
-export async function generateImage(prompt) {
+// Returns a PNG/JPEG buffer. `aspectRatio` (e.g. "9:16") is passed when given;
+// if the model rejects the option, the request is retried without it.
+export async function generateImage(prompt, { aspectRatio } = {}) {
   const url = `https://aiplatform.googleapis.com/v1/projects/${project()}/locations/global/publishers/google/models/${IMAGE_MODEL}:generateContent`
-  const body = await call(url, {
+  const payload = (withAspect) => ({
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+    generationConfig: { responseModalities: ['TEXT', 'IMAGE'], ...(withAspect && aspectRatio ? { imageConfig: { aspectRatio } } : {}) },
   })
+  let body
+  try {
+    body = await call(url, payload(true))
+  } catch (e) {
+    if (!aspectRatio || !/imageConfig|aspect/i.test(e.message)) throw e
+    body = await call(url, payload(false))
+  }
   const part = (body.candidates?.[0]?.content?.parts || []).find((p) => p.inlineData?.data)
   if (!part) throw new Error('The image model returned no image (it may have declined the prompt)')
   return Buffer.from(part.inlineData.data, 'base64')
 }
 
-// Returns an mp4 buffer. Takes about a minute.
-export async function generateVideo(prompt, { seconds = 4 } = {}) {
+// Returns an mp4 buffer. Takes about a minute. With `image` (a PNG/JPEG
+// buffer) the clip starts from that frame.
+export async function generateVideo(prompt, { seconds = 4, image } = {}) {
   const base = `https://${VIDEO_REGION}-aiplatform.googleapis.com/v1/projects/${project()}/locations/${VIDEO_REGION}/publishers/google/models/${VIDEO_MODEL}`
+  const instance = { prompt }
+  if (image) instance.image = { bytesBase64Encoded: image.toString('base64'), mimeType: image[0] === 0x89 ? 'image/png' : 'image/jpeg' }
   const op = await call(`${base}:predictLongRunning`, {
-    instances: [{ prompt }],
-    parameters: { aspectRatio: '9:16', durationSeconds: seconds, sampleCount: 1, generateAudio: false },
+    instances: [instance],
+    parameters: { aspectRatio: '9:16', durationSeconds: seconds, sampleCount: 1, generateAudio: false, ...(image ? { resizeMode: 'crop' } : {}) },
   })
   if (!op.name) throw new Error('Veo did not start an operation')
   for (let i = 0; i < 40; i++) {
@@ -83,4 +95,20 @@ export async function generateVideo(prompt, { seconds = 4 } = {}) {
     throw new Error(`Veo returned no video${s.response?.raiMediaFilteredReasons ? ': ' + s.response.raiMediaFilteredReasons.join('; ') : ''}`)
   }
   throw new Error('Veo did not finish within 7 minutes')
+}
+
+// Gemini text model with a JSON answer. `parts` may include images or video
+// as { inlineData: { mimeType, data } }.
+export async function askGemini(parts, schema, { temperature = 0.4 } = {}) {
+  const url = `https://aiplatform.googleapis.com/v1/projects/${project()}/locations/global/publishers/google/models/${TEXT_MODEL}:generateContent`
+  const body = await call(url, {
+    contents: [{ role: 'user', parts: parts.map((p) => (typeof p === 'string' ? { text: p } : p)) }],
+    generationConfig: { temperature, responseMimeType: 'application/json', responseSchema: schema },
+  })
+  const text = (body.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('')
+  try {
+    return JSON.parse(text)
+  } catch {
+    throw new Error('Gemini did not return valid JSON')
+  }
 }

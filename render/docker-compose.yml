@@ -21,8 +21,12 @@ services:
       ELEVENLABS_VOICE_ID: ${ELEVENLABS_VOICE_ID:-}
       # Vertex AI sign-in for generating cut-outs and clips (see /library)
       GOOGLE_CREDENTIALS_B64: ${GOOGLE_CREDENTIALS_B64:-}
-      DAILY_IMAGE_CAP: ${DAILY_IMAGE_CAP:-30}
-      DAILY_CLIP_CAP: ${DAILY_CLIP_CAP:-6}
+      DAILY_IMAGE_CAP: ${DAILY_IMAGE_CAP:-40}
+      DAILY_CLIP_CAP: ${DAILY_CLIP_CAP:-12}
+      # Building the library ahead of need (see the Library section in /studio)
+      CATALOG_DAILY_CLIPS: ${CATALOG_DAILY_CLIPS:-3}
+      CATALOG_DAILY_PIECES: ${CATALOG_DAILY_PIECES:-7}
+      CATALOG_UNTIL: ${CATALOG_UNTIL:-2027-02-14}
       # Claude API: researches the question bank and writes scripts (see /studio)
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5-5}

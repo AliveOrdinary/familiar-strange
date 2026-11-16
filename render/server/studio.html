@@ -108,8 +108,15 @@ function home() {
       ${q.example ? `<div class="s">${esc(q.example)}</div>` : ''}
       <div class="act">${p ? '<button class="ghost" data-b="unqueue">Picked ✓</button>' : '<button data-b="queue">Pick</button>'}<button class="quiet" data-b="reject">Remove</button></div></div>` }
   const archive = D.reels.filter((r) => ['rejected', 'published'].includes(r.status))
+  const RV = D.review
+  const nRev = RV?.items?.length || 0
+  const revItem = nRev ? `<a class="item need" href="#/review"><div class="t">Library: ${nRev}${nRev >= 25 ? '+' : ''} new picture${nRev > 1 ? 's' : ''} to review</div><div class="s">Keep or toss · about ${Math.max(1, Math.round(nRev / 6))} min</div></a>` : ''
+  const libLine = RV ? `<section><h2>Library</h2><div class="item"><div class="s">${RV.stats.kept.clip} film clips and ${RV.stats.kept.piece} cut-outs kept · about $${RV.stats.spent.toFixed(2)} spent through the studio ($${RV.stats.spentToday.toFixed(2)} today)</div>
+      <div class="s">Making ${RV.stats.daily.clip} clips and ${RV.stats.daily.piece} cut-outs a day until ${esc(RV.stats.until)}${RV.state.paused ? ' · <b>paused</b>' : RV.stats.backlog >= 30 ? ' · waiting for you to review' : RV.state.busy ? ' · <span class="dot"></span>making one now' : ''}</div>
+      ${RV.state.lastError ? `<div class="s err">${esc(RV.state.lastError)}</div>` : ''}
+      <div class="row"><button class="quiet" data-g="${RV.state.paused ? 'resume' : 'pause'}">${RV.state.paused ? 'Resume' : 'Pause'} daily making</button><a class="quiet" href="/library" style="padding:10px 8px;font-size:15px;color:var(--muted)">Browse everything</a></div></div></section>` : ''
   return `
-    <section><h2>Needs you</h2><div class="stack">${need.map(item).join('') || '<p class="note">Nothing is waiting on you.</p>'}</div></section>
+    <section><h2>Needs you</h2><div class="stack">${revItem}${need.map(item).join('') || (revItem ? '' : '<p class="note">Nothing is waiting on you.</p>')}</div></section>
     ${busy.length ? `<section><h2>Working</h2><div class="stack">${busy.map(item).join('')}</div></section>` : ''}
     <section><h2>Questions</h2><div class="stack">
       <button class="wide" data-g="draft" ${D.configured.claude ? '' : 'disabled'}>Write the next question</button>
@@ -120,6 +127,7 @@ function home() {
       ${D.jobs.refill?.state === 'error' ? `<p class="note err">Finding questions failed: ${esc(D.jobs.refill.message)}</p>` : ''}
       ${D.configured.claude ? '' : '<p class="note err">The Claude API key (ANTHROPIC_API_KEY) is not set on the stack.</p>'}
     </div></section>
+    ${libLine}
     ${archive.length ? `<section><button class="quiet" data-g="archive">${showArchive ? 'Hide' : 'Show'} posted and dropped (${archive.length})</button>
       ${showArchive ? `<div class="stack">${archive.map((r) => `<div class="item" data-id="${r.id}"><div class="t">${esc(r.title || 'Untitled')}</div><div class="s">${r.status === 'published' ? 'Posted' : 'Dropped'}</div><div class="row"><button class="ghost" data-a="restore">Bring back</button></div></div>`).join('')}</div>` : ''}</section>` : ''}`
 }
@@ -195,19 +203,35 @@ function reelView(r) {
   return `<div><a class="back" href="#/">‹ All reels</a><h1 class="title">${esc(r.title || 'Untitled')}</h1></div>${bar}<div class="panel" data-id="${r.id}">${body}</div>${['published', 'rejected'].includes(r.status) ? '' : drop}`
 }
 
+let tossFor = null
+function reviewView() {
+  const RV = D.review
+  const it = RV?.items?.[0]
+  const back = '<a class="back" href="#/">‹ All reels</a>'
+  if (!it) return `<div>${back}<h1 class="title">All reviewed</h1></div><p class="note">Nothing new to look at. New pictures arrive through the day.</p>`
+  const ground = GROUND[it.theme] || GROUND.tomato
+  const media = it.kind === 'clip' ? `<video src="${it.url}" autoplay loop muted playsinline style="max-width:100%;max-height:100%;filter:grayscale(1) contrast(1.4);border:8px solid var(--paper)"></video>` : `<img src="${it.url}" alt="${esc(it.name)}" style="max-width:100%;max-height:100%;filter:drop-shadow(0 6px 6px rgba(0,0,0,.35))">`
+  const reasons = Object.entries(RV.reasons).map(([k, v]) => `<button class="ghost" data-toss="${k}">${esc(v)}</button>`).join('')
+  return `<div>${back}<h1 class="title">Review the library</h1><p class="note">${RV.items.length}${RV.items.length >= 25 ? '+' : ''} waiting · ${it.kind === 'clip' ? 'film clip' : 'cut-out'}</p></div>
+    <div class="pic" data-lib="${it.id}"><div class="stage" style="background:${ground};aspect-ratio:4/5">${media}</div><div class="b">
+      <div class="nm">${esc(it.name)}</div><div class="st" style="font-size:15px">${esc(it.description)}</div>
+      ${it.check ? `<div class="st err">The automatic check flagged: ${esc(it.check)}</div>` : ''}</div></div>
+    ${tossFor === it.id ? `<div class="stack"><p class="note">What's wrong with it? This shapes the next ones.</p><div class="row fill">${reasons}</div><button class="quiet" data-g="untoss">Cancel</button></div>`
+      : `<div class="row fill sticky"><button class="ghost" data-g="toss">Toss</button><button data-g="keep">Keep</button></div>`}`
+}
 function route() { const m = location.hash.match(/^#\/reel\/([0-9a-f-]+)/); return m ? m[1] : null }
 function paint(force) {
   if (!D) return
   const id = route()
   const typing = document.activeElement && document.activeElement.matches('textarea, input')
-  const key = JSON.stringify([D, id, tab, confirmDrop, openDesc, showArchive])
+  const key = JSON.stringify([D, id, location.hash, tab, confirmDrop, openDesc, showArchive, tossFor])
   if (!force && (key === lastKey || typing)) return
   lastKey = key
   const r = id && D.reels.find((x) => x.id === id)
-  $('#app').innerHTML = id ? (r ? reelView(r) : '<a class="back" href="#/">‹ All reels</a><p class="note">That reel is no longer here.</p>') : home()
+  $('#app').innerHTML = location.hash === '#/review' ? reviewView() : id ? (r ? reelView(r) : '<a class="back" href="#/">‹ All reels</a><p class="note">That reel is no longer here.</p>') : home()
 }
 async function load(force) {
-  try { D = await fetch('/studio.json').then((r) => r.json()); paint(force) }
+  try { const [d, rv] = await Promise.all([fetch('/studio.json').then((r) => r.json()), fetch('/review.json').then((r) => r.json()).catch(() => null)]); D = d; D.review = rv; paint(force) }
   catch (e) { if (!D) $('#app').innerHTML = `<p class="note err">The studio could not load: ${esc(e.message)}</p>` }
 }
 const act = async (fn, okMsg) => { try { await fn(); if (okMsg) flash(okMsg); if (document.activeElement) document.activeElement.blur(); await load(true) } catch (e) { flash(e.message, true); paint(true) } }
@@ -222,12 +246,17 @@ document.addEventListener('click', (e) => {
     if (g === 'nodrop') { confirmDrop = null; return paint(true) }
     if (g === 'archive') { showArchive = !showArchive; return paint(true) }
     if (g === 'desc') { openDesc[b.dataset.for] = true; return paint(true) }
+    if (g === 'toss') { tossFor = D.review.items[0].id; return paint(true) }
+    if (g === 'untoss') { tossFor = null; return paint(true) }
+    if (g === 'keep') { const it = D.review.items[0]; b.disabled = true; D.review.items.shift(); paint(true); return act(() => post(`/library/${it.id}/approve`)) }
+    if (g === 'pause' || g === 'resume') { b.disabled = true; return act(() => post(`/catalog/${g}`), g === 'pause' ? 'Daily making paused.' : 'Daily making resumed.') }
     if (g === 'copy') { const t = $('[data-cap]'); t.focus(); t.select(); t.setSelectionRange(0, 99999); let ok = false; try { ok = document.execCommand('copy') } catch {} t.blur(); return flash(ok ? 'Caption copied.' : 'Select the caption and copy it by hand.', !ok) }
     b.disabled = true
     if (g === 'draft') return act(() => post('/reels/draft'), 'Claude is researching and writing. It will appear under Working.')
     if (g === 'refill') return act(() => post('/bank/refill'), 'Claude is researching new questions; this takes a few minutes.')
     if (g === 'approveall') { const r = D.reels.find((x) => x.id === id); return act(async () => { for (const a of r.assets.filter((x) => x.status === 'pending' && x.id)) await post(`/library/${a.id}/approve`) }, 'Approved.') }
   }
+  if (b.dataset.toss) { const it = D.review.items[0]; tossFor = null; D.review.items.shift(); paint(true); return act(() => post(`/library/${it.id}/toss`, { reason: b.dataset.toss })) }
   if (b.dataset.b) { b.disabled = true; return act(() => post(`/bank/${b.closest('[data-q]').dataset.q}/${b.dataset.b}`)) }
   if (b.dataset.l) { const c = b.closest('[data-lib]'); b.disabled = true; const d = $('[data-desc]', c); delete openDesc[c.dataset.lib]
     return act(() => post(`/library/${c.dataset.lib}/${b.dataset.l}`, d ? { description: d.value } : {}), b.dataset.l === 'regenerate' ? 'Making it again.' : '') }
