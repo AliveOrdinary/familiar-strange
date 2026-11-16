@@ -165,7 +165,18 @@ async function runJob(reelId, voice) {
   const outPath = join(PUBLIC_DIR, 'out', `${reelId}.mp4`)
   mkdirSync(dirname(outPath), { recursive: true })
   // crf 26 keeps a 45s reel near 10 MB, under Telegram's 20 MB send-by-link cap
-  await renderMedia({ composition: comp, serveUrl, codec: 'h264', crf: 26, outputLocation: outPath, inputProps })
+  // Two browser tabs and a capped video-frame cache keep a three-clip reel
+  // inside the container's memory limit; without them the kernel kills ffmpeg.
+  await renderMedia({
+    composition: comp,
+    serveUrl,
+    codec: 'h264',
+    crf: 26,
+    outputLocation: outPath,
+    inputProps,
+    concurrency: Number(process.env.RENDER_CONCURRENCY || 2),
+    offthreadVideoCacheSizeInBytes: 256 * 1024 * 1024,
+  })
 
   // 4. Upload. A per-render suffix gives a fresh URL every time, so the CDN
   //    can never serve a stale cut during review.

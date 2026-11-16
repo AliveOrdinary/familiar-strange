@@ -39,7 +39,7 @@ services:
       # generated cut-outs and clips: the library
       - fs-lib:/app/public/lib
     # One Chromium render peaks around 1.5–2 GB.
-    mem_limit: 3g
+    mem_limit: 4g
 
   kokoro:
     image: ghcr.io/remsky/kokoro-fastapi-cpu:latest
