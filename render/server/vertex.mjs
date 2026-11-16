@@ -99,16 +99,58 @@ export async function generateVideo(prompt, { seconds = 4, image } = {}) {
 
 // Gemini text model with a JSON answer. `parts` may include images or video
 // as { inlineData: { mimeType, data } }.
+//
+// Which text models a project can reach varies, so this tries a short list
+// and remembers the first that answers. As a last resort it uses the image
+// model, which also reads images and video and can answer in text.
+const TEXT_CANDIDATES = [
+  [TEXT_MODEL, 'global'],
+  [TEXT_MODEL, 'us-central1'],
+  ['gemini-3.1-flash', 'global'],
+  ['gemini-3-flash', 'global'],
+  ['gemini-2.5-flash-lite', 'us-central1'],
+  [IMAGE_MODEL, 'global'],
+]
+let textModel = null // [model, region] that worked
+
+const endpoint = ([model, region]) =>
+  `https://${region === 'global' ? '' : region + '-'}aiplatform.googleapis.com/v1/projects/${project()}/locations/${region}/publishers/google/models/${model}:generateContent`
+
+function parseJson(text) {
+  try { return JSON.parse(text) } catch {}
+  const m = String(text).match(/\{[\s\S]*\}/)
+  if (m) try { return JSON.parse(m[0]) } catch {}
+  throw new Error('Gemini did not return valid JSON')
+}
+
 export async function askGemini(parts, schema, { temperature = 0.4 } = {}) {
-  const url = `https://aiplatform.googleapis.com/v1/projects/${project()}/locations/global/publishers/google/models/${TEXT_MODEL}:generateContent`
-  const body = await call(url, {
-    contents: [{ role: 'user', parts: parts.map((p) => (typeof p === 'string' ? { text: p } : p)) }],
-    generationConfig: { temperature, responseMimeType: 'application/json', responseSchema: schema },
-  })
-  const text = (body.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('')
-  try {
-    return JSON.parse(text)
-  } catch {
-    throw new Error('Gemini did not return valid JSON')
+  const contents = [{ role: 'user', parts: parts.map((p) => (typeof p === 'string' ? { text: p } : p)) }]
+  const strict = { temperature, responseMimeType: 'application/json', responseSchema: schema }
+  const loose = { temperature, ...(textModel?.[0] === IMAGE_MODEL ? { responseModalities: ['TEXT'] } : {}) }
+  const tell = { text: `Answer with JSON only, matching this schema: ${JSON.stringify(schema)}` }
+  const ask = async (cand, cfg, extra) => {
+    const body = await call(endpoint(cand), { contents: extra ? [{ ...contents[0], parts: [...contents[0].parts, extra] }] : contents, generationConfig: cfg })
+    return (body.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('')
   }
+  const list = textModel ? [textModel] : TEXT_CANDIDATES
+  let last
+  for (const cand of list) {
+    const isImage = cand[0] === IMAGE_MODEL
+    try {
+      let text
+      try {
+        text = isImage ? await ask(cand, { temperature, responseModalities: ['TEXT'] }, tell) : await ask(cand, strict)
+      } catch (e) {
+        if (isImage || !/responseSchema|response_schema|responseMimeType|INVALID_ARGUMENT|400/i.test(e.message) || /404|not found/i.test(e.message)) throw e
+        text = await ask(cand, loose, tell) // model rejects schemas: ask in words
+      }
+      if (!textModel) { textModel = cand; console.log(`gemini: using ${cand[0]} (${cand[1]})`) }
+      return parseJson(text)
+    } catch (e) {
+      last = e
+      if (!/404|not found|does not have access|NOT_FOUND|PERMISSION_DENIED/i.test(e.message)) throw e
+      if (textModel) { textModel = null; return askGemini(parts, schema, { temperature }) }
+    }
+  }
+  throw last || new Error('No Gemini text model is reachable')
 }
