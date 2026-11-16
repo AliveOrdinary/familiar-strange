@@ -13,6 +13,26 @@ export const THEMES = {
 
 const SHOW = `"Why we do this" is an Instagram reels account about the anthropology of everyday life. Each reel takes one ordinary habit the viewer has never questioned and explains it with one real finding from anthropology or a neighbouring field (sociology, linguistics, social psychology), naming who found it and when. The tone is a curious friend who has read the book: plain words, short sentences, no jargon left unexplained, no hype, no moralising.`
 
+const STANCE = `How the account thinks. It stands with what anthropology has learned as a discipline, which began in armchair speculation and corrected itself through fieldwork:
+- Make the familiar strange. Start from the viewer's own habit and treat it as just as curious as anyone else's. No society is exotic, quaint or behind; Western habits get the same scrutiny as everyone else's.
+- Ask how it came to be. Trace where a practice came from, how it changed and whom it served, so that what feels natural is shown to have been made.
+- Meaning from the inside first. Explain a practice through what it means to the people who do it, before any outside theory. Their reasons count as evidence.
+- Connect it to the whole: the economy, kinship, belief, status or power it sits in.
+- Fieldwork over armchairs. Prefer ethnography, long-term observation and archival work. Early armchair theorists (Frazer, Tylor, the cultural evolutionists) are the history of the discipline, not current findings. When a classic idea has been critiqued or revised, use the revised version or say it was revised. Scholars who worked from other people's reports "argued"; they did not "find everywhere".
+- Careful with "everyone". Claims about all humans only where comparative evidence supports them; otherwise "in many societies", with the variation shown.
+- Explain before judging. Never mock, moralise or romanticise.
+
+Lines never crossed:
+- Nothing invented or misattributed. Every claim and quote rests on a source you found.
+- No exoticising and no ladder-of-progress words: primitive, savage, civilised, backward, exotic, bizarre, or tribe and tribal used loosely (name the people instead).
+- The question the hook asks is answered by the end.
+
+The account also has to win an audience, so package boldly and claim honestly:
+- Simplify freely as long as it isn't wrong. A clean, confident version beats a hedged one.
+- At most one hedge in the voiceover. Debates, revisions and caveats go in the caption.
+- Big names make good hooks; use accurate verbs (argued, showed, noticed).
+- Provocative is good if it's true. Curious, never superior: no "you've been doing it wrong".`
+
 const RESEARCH = `Research rules:
 - Use web search before you write. Do not rely on memory for names, dates, titles or quotations.
 - Every reel rests on one anchor: a named author, a named work and its year, all confirmed in search results. Prefer the original scholar over a pop summary.
@@ -22,6 +42,8 @@ const RESEARCH = `Research rules:
 
 export const BANK_SYSTEM = `${SHOW}
 
+${STANCE}
+
 Your job now is to stock the question bank. Propose questions that could each carry a 40-second reel.
 
 A good question:
@@ -29,12 +51,14 @@ A good question:
 - has a surprising but well-supported answer that fits in one sentence,
 - has an anchor you have confirmed by search,
 - is not a duplicate of anything in the lists you are given.
+- ideally touches something people already disagree about (tipping, shoes indoors, splitting the bill, how fast to reply), because those reels get comments.
+- rests on fieldwork, archival or comparative evidence wherever possible; say which in "method".
 
 Draw on three pools: classic findings (Mauss, Douglas, Goffman, Hall, Malinowski, Turner, Bourdieu, Hochschild and others you find), everyday domains (food, money, greetings, queues, phones, home, work, time), and the calendar for the coming two months.
 
 ${RESEARCH}
 
-Score each question from 1 to 10 for how likely a stranger is to stop scrolling for it AND how solid the evidence is. Be strict: most should land between 5 and 8.
+Score each question from 1 to 10 for how likely a stranger is to stop scrolling for it, how likely they are to comment, AND how solid the evidence is. Be strict: most should land between 5 and 8.
 
 When you are done researching, call submit_questions once.`
 
@@ -49,7 +73,7 @@ export const BANK_TOOL = {
         type: 'array',
         items: {
           type: 'object',
-          required: ['question', 'answer', 'everyday_hook', 'author', 'work', 'year', 'source_url', 'example', 'theme', 'score'],
+          required: ['question', 'answer', 'everyday_hook', 'author', 'work', 'year', 'source_url', 'example', 'theme', 'score', 'method'],
           properties: {
             question: { type: 'string', description: 'The everyday question, under 60 characters, e.g. "Why do we tip?"' },
             answer: { type: 'string', description: 'The one-sentence answer the reel builds to.' },
@@ -61,6 +85,7 @@ export const BANK_TOOL = {
             example: { type: 'string', description: 'One concrete real-world example or cross-cultural contrast.' },
             theme: { type: 'string', enum: Object.keys(THEMES) },
             score: { type: 'integer', minimum: 1, maximum: 10 },
+            method: { type: 'string', enum: ['fieldwork', 'archive', 'comparison', 'survey or experiment', 'theory'], description: 'What the anchor mainly rests on.' },
           },
         },
       },
@@ -69,6 +94,8 @@ export const BANK_TOOL = {
 }
 
 export const SCRIPT_SYSTEM = `${SHOW}
+
+${STANCE}
 
 Your job now is to research one question and write the reel.
 
@@ -80,6 +107,11 @@ Script rules:
 - One idea per beat. Name the anchor author and year aloud in the beat where the finding appears.
 - Write for the ear: short sentences, contractions, no brackets, no semicolons, no lists of three abstractions.
 - Pauses: put a mark like [0.4] after a sentence to hold that many seconds before the next one. Use them after the hook question and before a reveal. Never put a mark at the very start of a beat.
+
+Hooks:
+- The first sentence is a concrete contradiction, a surprising true fact, or a small sting the viewer recognises. No warm-up, no "Have you ever wondered".
+- The hook headline does the same job in four words or fewer, for viewers watching with the sound off.
+- Write three different hooks, one of each style: "contradiction", "surprising fact", "sting". Beat 1 is one of them (say which in hook_style); give the other two in alt_hooks. Each must end with the question, lead naturally into beat 2, and follow the hook layout rules with a film clip as its first piece. Any new pieces they use go in assets too.
 
 Picture rules (the reel is a paper collage: black-and-white cut-out photos on coloured paper, with a few short film clips in taped paper frames):
 - Each beat has a layout and one to three pieces. A piece is a cut-out (a single object, described so an image model can draw it alone on a plain ground) or a film clip.
@@ -97,16 +129,20 @@ Picture rules (the reel is a paper collage: black-and-white cut-out photos on co
 - Labels are keywords, at most 18 characters, never sentences. A cite is "Author, Work (Year)", at most 40 characters, on the beat that names the author.
 - Palette by theme: ${Object.entries(THEMES).map(([k, v]) => `${k} = ${v}`).join('; ')}.
 
-Also write the Instagram caption: two or three plain sentences that add one detail the reel did not have room for, then a line "Sources:" listing author, work and year. No hashtags beyond three at the very end.
+Also write the Instagram caption: two or three plain sentences that add one detail the reel did not have room for (this is where a debate, revision or caveat goes), then a line "Sources:" listing author, work and year. No hashtags beyond three at the very end.
+
+And a comment_question: one short question only the viewer can answer, usually comparing how their family, country or workplace does it, e.g. "Do you tip where you live? How much?". Never a yes/no about the reel itself. It is added to the caption.
 
 When you are done researching, call submit_script once.`
+
+export const HOOK_STYLES = ['contradiction', 'surprising fact', 'sting']
 
 export const SCRIPT_TOOL = {
   name: 'submit_script',
   description: 'Submit the finished reel.',
   input_schema: {
     type: 'object',
-    required: ['palette', 'beats', 'assets', 'sources', 'caption'],
+    required: ['palette', 'beats', 'hook_style', 'alt_hooks', 'assets', 'sources', 'caption', 'comment_question'],
     properties: {
       palette: { type: 'string', enum: Object.keys(THEMES) },
       beats: {
@@ -150,6 +186,23 @@ export const SCRIPT_TOOL = {
         items: { type: 'object', required: ['claim', 'title', 'url'], properties: { claim: { type: 'string' }, title: { type: 'string' }, url: { type: 'string' } } },
       },
       caption: { type: 'string' },
+      comment_question: { type: 'string', description: 'One short question that invites viewers to say how they do it, under 100 characters.' },
+      hook_style: { type: 'string', enum: HOOK_STYLES },
+      alt_hooks: {
+        type: 'array',
+        description: 'Two alternative versions of beat 1 in the other two styles.',
+        items: {
+          type: 'object',
+          required: ['style', 'layout', 'headline', 'say', 'pieces'],
+          properties: {
+            style: { type: 'string', enum: HOOK_STYLES },
+            layout: { type: 'string', enum: ['hook'] },
+            headline: { type: 'array', items: { type: 'string' } },
+            say: { type: 'string' },
+            pieces: { type: 'array', items: { type: 'object', required: ['name', 'kind'], properties: { name: { type: 'string' }, kind: { type: 'string', enum: ['piece', 'clip'] }, at: { type: 'integer', minimum: 0 } } } },
+          },
+        },
+      },
     },
   },
 }
@@ -160,72 +213,116 @@ const slug = (s) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(s || '')
 
 // Problems with a submitted script, in words Claude (and a person) can act on.
 // `known` is the set of names already available: "piece:shoes", "clip:spill".
-export function checkScript(s, known = new Set()) {
+const LADDER = /\b(primitive|savages?|civili[sz]ed|uncivili[sz]ed|backward|exotic|bizarre|tribes?|tribal)\b/i
+
+// Problems with a submitted script, in words Claude (and a person) can act on.
+// `known` is the set of names already available: "piece:shoes", "clip:spill".
+// With `submission` false (a hand edit), the parts only Claude writes are not required.
+export function checkScript(s, known = new Set(), { submission = true } = {}) {
   const out = []
   const beats = s?.beats || []
   if (beats.length !== 6) out.push(`There must be exactly 6 beats; there are ${beats.length}.`)
   const total = beats.reduce((n, b) => n + words(b.say || ''), 0)
   if (total < 80 || total > 112) out.push(`The script has ${total} spoken words; it must be between 85 and 110.`)
   const declared = new Set((s?.assets || []).map((a) => `${a.kind}:${a.name}`))
-  let clips = 0
-  beats.forEach((b, i) => {
-    const n = i + 1
+
+  function checkBeat(b, n) {
+    let clips = 0
     const lim = LIMITS[b.layout]
-    if (!lim) return out.push(`Beat ${n}: unknown layout "${b.layout}".`)
-    if (!b.say || !stripPauses(b.say)) return out.push(`Beat ${n} has no spoken text.`)
-    if (/^\s*\[/.test(b.say)) out.push(`Beat ${n} starts with a pause mark; remove it.`)
+    if (!lim) { out.push(`${n}: unknown layout "${b.layout}".`); return 0 }
+    if (!b.say || !stripPauses(b.say)) { out.push(`${n} has no spoken text.`); return 0 }
+    if (/^\s*\[/.test(b.say)) out.push(`${n} starts with a pause mark; remove it.`)
     const sentences = parseSay(b.say).length
     const pieces = b.pieces || []
-    if (!pieces.length) out.push(`Beat ${n} has no pieces.`)
-    if (pieces.length > lim.pieces) out.push(`Beat ${n}: layout "${b.layout}" takes at most ${lim.pieces} piece(s).`)
-    if ((b.labels || []).length > lim.labels) out.push(`Beat ${n}: layout "${b.layout}" takes at most ${lim.labels} label(s).`)
-    if (b.layout === 'duo' && pieces.length !== 2) out.push(`Beat ${n}: "duo" needs exactly 2 pieces.`)
-    if (b.layout === 'film' && pieces[0]?.kind !== 'clip') out.push(`Beat ${n}: in "film" the first piece must be a film clip.`)
-    if (b.layout !== 'film' && b.layout !== 'hook' && pieces.some((p) => p.kind === 'clip')) out.push(`Beat ${n}: a film clip needs the "film" layout (or the hook).`)
-    if (b.layout === 'film' && pieces[1]?.kind === 'clip') out.push(`Beat ${n}: only the first piece of "film" can be a clip.`)
+    if (!pieces.length) out.push(`${n} has no pieces.`)
+    if (pieces.length > lim.pieces) out.push(`${n}: layout "${b.layout}" takes at most ${lim.pieces} piece(s).`)
+    if ((b.labels || []).length > lim.labels) out.push(`${n}: layout "${b.layout}" takes at most ${lim.labels} label(s).`)
+    if (b.layout === 'duo' && pieces.length !== 2) out.push(`${n}: "duo" needs exactly 2 pieces.`)
+    if (b.layout === 'film' && pieces[0]?.kind !== 'clip') out.push(`${n}: in "film" the first piece must be a film clip.`)
+    if (b.layout !== 'film' && b.layout !== 'hook' && pieces.some((p) => p.kind === 'clip')) out.push(`${n}: a film clip needs the "film" layout (or the hook).`)
+    if (b.layout === 'film' && pieces[1]?.kind === 'clip') out.push(`${n}: only the first piece of "film" can be a clip.`)
+    if (b.layout === 'hook' && pieces[0]?.kind !== 'clip') out.push(`${n}: the first piece of a hook must be a film clip.`)
+    if (b.layout === 'hook' && !/\?/.test(b.say)) out.push(`${n}: a hook must end by asking the question.`)
     const hl = b.headline || []
-    if ((b.layout === 'hook' || b.layout === 'payoff') && !hl.length) out.push(`Beat ${n}: "${b.layout}" needs a headline.`)
-    if (b.layout !== 'hook' && b.layout !== 'payoff' && hl.length) out.push(`Beat ${n}: only hook and payoff have a headline.`)
+    if ((b.layout === 'hook' || b.layout === 'payoff') && !hl.length) out.push(`${n}: "${b.layout}" needs a headline.`)
+    if (b.layout !== 'hook' && b.layout !== 'payoff' && hl.length) out.push(`${n}: only hook and payoff have a headline.`)
     const maxLines = b.layout === 'hook' ? 2 : 3
     const maxChars = b.layout === 'hook' ? 9 : 10
-    if (hl.length > maxLines) out.push(`Beat ${n}: headline has ${hl.length} lines; the limit is ${maxLines}.`)
-    hl.forEach((l) => { if (l.length > maxChars) out.push(`Beat ${n}: headline line "${l}" is ${l.length} characters; the limit is ${maxChars}.`) })
-    for (const l of b.labels || []) if ((l.text || '').length > 18) out.push(`Beat ${n}: label "${l.text}" is over 18 characters.`)
-    if (b.cite && b.cite.length > 40) out.push(`Beat ${n}: cite "${b.cite}" is over 40 characters; shorten the title.`)
+    if (hl.length > maxLines) out.push(`${n}: headline has ${hl.length} lines; the limit is ${maxLines}.`)
+    hl.forEach((l) => { if (l.length > maxChars) out.push(`${n}: headline line "${l}" is ${l.length} characters; the limit is ${maxChars}.`) })
+    for (const l of b.labels || []) if ((l.text || '').length > 18) out.push(`${n}: label "${l.text}" is over 18 characters.`)
+    if (b.cite && b.cite.length > 40) out.push(`${n}: cite "${b.cite}" is over 40 characters; shorten the title.`)
     const ats = [...pieces.map((p) => p.at), ...(b.labels || []).map((l) => l.at), b.citeAt].filter((a) => a != null)
-    if (pieces.length && !pieces.some((p) => !p.at)) out.push(`Beat ${n}: no piece appears on sentence 0, so the stage starts empty; give one piece "at": 0.`)
-    if (ats.some((a) => a >= sentences)) out.push(`Beat ${n} has ${sentences} sentence(s), so "at" values must be below ${sentences}.`)
+    if (pieces.length && !pieces.some((p) => !p.at)) out.push(`${n}: no piece appears on sentence 0, so the stage starts empty; give one piece "at": 0.`)
+    if (ats.some((a) => a >= sentences)) out.push(`${n} has ${sentences} sentence(s), so "at" values must be below ${sentences}.`)
     for (const p of pieces) {
-      if (!slug(p.name)) out.push(`Beat ${n}: piece name "${p.name}" must be lowercase letters, digits and hyphens.`)
+      if (!slug(p.name)) out.push(`${n}: piece name "${p.name}" must be lowercase letters, digits and hyphens.`)
       if (p.kind === 'clip') clips++
       const key = `${p.kind}:${p.name}`
-      if (!known.has(key) && !declared.has(key)) out.push(`Beat ${n}: "${p.name}" is not in the library and has no entry in assets.`)
+      if (!known.has(key) && !declared.has(key)) out.push(`${n}: "${p.name}" is not in the library and has no entry in assets.`)
     }
-  })
+    const text = [b.say, ...(b.headline || []), ...(b.labels || []).map((l) => l.text)].join(' ')
+    const bad = text.match(LADDER)
+    if (bad) out.push(`${n} uses "${bad[0]}". Avoid ladder-of-progress and exoticising words; name the people or practice instead.`)
+    return clips
+  }
+
+  let clips = 0
+  beats.forEach((b, i) => { clips += checkBeat(b, `Beat ${i + 1}`) })
   if (beats[0] && beats[0].layout !== 'hook') out.push('Beat 1 must use the hook layout.')
   if (beats[5] && beats[5].layout !== 'payoff') out.push('Beat 6 must use the payoff layout.')
-  if (beats[0]?.say && !/\?/.test(beats[0].say)) out.push('The hook must end by asking the question.')
   if (clips !== 3) out.push(`There are ${clips} film clips; there must be exactly 3 (one in the hook, two on "film" beats).`)
-  if (beats[0]?.layout === 'hook' && beats[0].pieces?.[0]?.kind !== 'clip') out.push('The first piece of the hook must be a film clip.')
+
+  if (submission) {
+    const alts = s?.alt_hooks || []
+    if (alts.length !== 2) out.push(`Give exactly 2 alt_hooks; there are ${alts.length}.`)
+    const styles = new Set([s?.hook_style, ...alts.map((a) => a.style)])
+    if (styles.size !== 3) out.push('The three hooks must use three different styles: contradiction, surprising fact, sting.')
+    alts.forEach((h, i) => {
+      const clipsIn = checkBeat({ ...h, layout: 'hook' }, `Alternative hook ${i + 1}`)
+      if (clipsIn !== 1) out.push(`Alternative hook ${i + 1} must contain exactly one film clip, as its first piece.`)
+      const t = total - words(beats[0]?.say || '') + words(h.say || '')
+      if (t < 80 || t > 112) out.push(`With alternative hook ${i + 1} the script has ${t} words; keep it between 85 and 110.`)
+    })
+    const q = (s?.comment_question || '').trim()
+    if (!q.endsWith('?') || q.length > 120) out.push('comment_question must be one question under 120 characters, ending with "?".')
+    const extra = `${s?.caption || ''} ${q}`.match(LADDER)
+    if (extra) out.push(`The caption uses "${extra[0]}". Avoid ladder-of-progress and exoticising words.`)
+  }
   for (const a of s?.assets || []) if ((a.description || '').length < 8) out.push(`Asset "${a.name}" needs a real description.`)
-  if (!(s?.sources || []).length) out.push('List at least one source with its URL.')
+  if (submission && !(s?.sources || []).length) out.push('List at least one source with its URL.')
   return out
 }
 
 // Claude's submission → the shape the collage template renders.
+const toBeat = (b) => ({
+  layout: b.layout,
+  ...(b.headline?.length ? { headline: b.headline } : {}),
+  ...(b.cite ? { cite: b.cite, ...(b.citeAt != null ? { citeAt: b.citeAt } : {}) } : {}),
+  pieces: b.pieces.map((p) => ({ ...(p.kind === 'clip' ? { clip: p.name } : { name: p.name }), ...(p.at != null ? { at: p.at } : {}) })),
+  ...(b.labels?.length ? { labels: b.labels.map((l) => ({ text: l.text, ...(l.at != null ? { at: l.at } : {}) })) } : {}),
+  say: b.say,
+})
+
 export function toRenderScript(s, number) {
+  const beats = s.beats.map(toBeat)
+  const hooks = [{ style: s.hook_style, ...beats[0] }, ...(s.alt_hooks || []).map((h) => ({ style: h.style, ...toBeat({ ...h, layout: 'hook' }) }))]
   return {
     palette: s.palette,
     ...(number ? { number } : {}),
-    beats: s.beats.map((b) => ({
-      layout: b.layout,
-      ...(b.headline?.length ? { headline: b.headline } : {}),
-      ...(b.cite ? { cite: b.cite, ...(b.citeAt != null ? { citeAt: b.citeAt } : {}) } : {}),
-      pieces: b.pieces.map((p) => ({ ...(p.kind === 'clip' ? { clip: p.name } : { name: p.name }), ...(p.at != null ? { at: p.at } : {}) })),
-      ...(b.labels?.length ? { labels: b.labels.map((l) => ({ text: l.text, ...(l.at != null ? { at: l.at } : {}) })) } : {}),
-      say: b.say,
-    })),
+    beats,
+    hooks,
+    hook: 0,
     assets: s.assets || [],
     sources: s.sources || [],
   }
+}
+
+// The comment question goes just before the sources line.
+export function captionWithQuestion(caption, question) {
+  const c = String(caption || '').trim()
+  const q = String(question || '').trim()
+  if (!q) return c
+  const i = c.search(/\n\s*Sources:/i)
+  return i === -1 ? `${c}\n\n${q}` : `${c.slice(0, i).trim()}\n\n${q}\n\n${c.slice(i).trim()}`
 }

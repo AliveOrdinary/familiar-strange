@@ -104,7 +104,7 @@ function home() {
   const refilling = D.jobs.refill?.state === 'running'
   const qrow = (q) => { const s = (q.sources || [])[0] || {}; const p = q.status === 'approved'
     return `<div class="q ${p ? 'picked' : ''}" data-q="${q.id}"><div class="t">${esc(q.title)}</div>${q.angle ? `<div class="a">${esc(q.angle)}</div>` : ''}
-      <div class="s">${s.author ? `${esc(s.author)}, ${esc(s.work)} (${esc(s.year)})` : esc(q.notes || '')}${s.url ? ` · <a href="${esc(s.url)}" target="_blank" rel="noopener">source</a>` : ''}${q.score ? ` · ${q.score}/10` : ''}</div>
+      <div class="s">${s.author ? `${esc(s.author)}, ${esc(s.work)} (${esc(s.year)})` : esc(q.notes || '')}${s.method ? ` · ${esc(s.method)}` : ''}${s.url ? ` · <a href="${esc(s.url)}" target="_blank" rel="noopener">source</a>` : ''}${q.score ? ` · ${q.score}/10` : ''}</div>
       ${q.example ? `<div class="s">${esc(q.example)}</div>` : ''}
       <div class="act">${p ? '<button class="ghost" data-b="unqueue">Picked ✓</button>' : '<button data-b="queue">Pick</button>'}<button class="quiet" data-b="reject">Remove</button></div></div>` }
   const archive = D.reels.filter((r) => ['rejected', 'published'].includes(r.status))
@@ -155,6 +155,7 @@ function reelView(r) {
       const names = (b) => (b.pieces || []).map((p) => (typeof p === 'string' ? p : p.clip ? `film: ${p.clip}` : p.name)).join(', ')
       const src = Array.isArray(r.script.sources) ? r.script.sources : []
       body = `${r.error && review ? `<p class="note err">${esc(r.error)}</p>` : ''}<p class="note">${words} spoken words · ${esc(r.script.palette)} palette${review ? ' · numbers in brackets are pauses in seconds' : ''}</p>
+        ${review && (r.script.hooks || []).length > 1 ? `<div class="stack"><h2 style="margin:6px 0 0">Pick a hook</h2>${r.script.hooks.map((h, i) => `<div class="q ${i === (r.script.hook || 0) ? 'picked' : ''}"><div class="s">${esc(h.style || 'hook')}${i === (r.script.hook || 0) ? ' · in use' : ''}</div><div class="t">${esc((h.headline || []).join(' '))}</div><div class="a">${esc(h.say)}</div>${i === (r.script.hook || 0) ? '' : `<div class="act"><button class="ghost" data-hook="${i}">Use this hook</button></div>`}</div>`).join('')}<h2 style="margin:10px 0 0">The script</h2></div>` : ''}
         ${beats.map((b, i) => `<div class="beat"><div class="n">${i + 1}${b.headline ? ' · ' + esc(b.headline.join(' / ')) : ''}</div>
           ${review ? `<textarea rows="3" data-say="${i}">${esc(b.say)}</textarea>` : `<div class="say">${esc(b.say)}</div>`}
           <div class="x">Shows: ${esc(names(b))}${(b.labels || []).length ? ' · words on screen: ' + esc(b.labels.map((l) => l.text).join(', ')) : ''}${b.cite ? ' · ' + esc(b.cite) : ''}</div></div>`).join('')}
@@ -256,6 +257,7 @@ document.addEventListener('click', (e) => {
     if (g === 'refill') return act(() => post('/bank/refill'), 'Claude is researching new questions; this takes a few minutes.')
     if (g === 'approveall') { const r = D.reels.find((x) => x.id === id); return act(async () => { for (const a of r.assets.filter((x) => x.status === 'pending' && x.id)) await post(`/library/${a.id}/approve`) }, 'Approved.') }
   }
+  if (b.dataset.hook != null && b.dataset.hook !== '') { b.disabled = true; return act(() => post(`/reels/${route()}/hook`, { index: Number(b.dataset.hook) }), 'Hook swapped.') }
   if (b.dataset.toss) { const it = D.review.items[0]; tossFor = null; D.review.items.shift(); paint(true); return act(() => post(`/library/${it.id}/toss`, { reason: b.dataset.toss })) }
   if (b.dataset.b) { b.disabled = true; return act(() => post(`/bank/${b.closest('[data-q]').dataset.q}/${b.dataset.b}`)) }
   if (b.dataset.l) { const c = b.closest('[data-lib]'); b.disabled = true; const d = $('[data-desc]', c); delete openDesc[c.dataset.lib]

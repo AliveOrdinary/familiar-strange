@@ -15,7 +15,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { research, claudeConfigured } from './claude.mjs'
 import { vertexConfigured } from './vertex.mjs'
-import { BANK_SYSTEM, BANK_TOOL, SCRIPT_SYSTEM, SCRIPT_TOOL, checkScript, toRenderScript } from './brief.mjs'
+import { BANK_SYSTEM, BANK_TOOL, SCRIPT_SYSTEM, SCRIPT_TOOL, checkScript, toRenderScript, captionWithQuestion } from './brief.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
@@ -68,7 +68,7 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
       example: q.example,
       theme: q.theme,
       score: q.score,
-      sources: [{ author: q.author, work: q.work, year: q.year, url: q.source_url }],
+      sources: [{ author: q.author, work: q.work, year: q.year, url: q.source_url, method: q.method }],
       status: 'proposed',
       batch_week: monday.toISOString().slice(0, 10),
     }))
@@ -102,7 +102,7 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
     await setReel(reelId, {
       status: 'script_review',
       script: toRenderScript(result),
-      caption: result.caption,
+      caption: captionWithQuestion(result.caption, result.comment_question),
       factcheck: { model, searches: usage.searches, tokens_in: usage.input, tokens_out: usage.output },
       error: null,
     })
@@ -131,7 +131,8 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
   // New assets for an approved script are made one after another.
   async function makeAssets(reel) {
     const failures = []
-    for (const a of reel.script.assets || []) {
+    const used = new Set((reel.script.beats || []).flatMap((b) => (b.pieces || []).map((p) => (typeof p === 'string' ? `piece:${p}` : p.clip ? `clip:${p.clip}` : `piece:${p.name}`))))
+    for (const a of (reel.script.assets || []).filter((x) => used.has(`${x.kind}:${x.name}`))) {
       if (shipped(a.kind, a.name)) continue
       try { await library.ensure(a.kind, a.name, a.description) } catch (e) { failures.push(e.message) }
     }
@@ -246,9 +247,21 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
       const { known } = await knownAssets()
       const asSubmitted = { ...script, beats: script.beats.map((b) => ({ ...b, pieces: b.pieces.map((p) => (typeof p === 'string' ? { name: p, kind: 'piece' } : { name: p.clip || p.name, kind: p.clip ? 'clip' : 'piece', at: p.at })) })) }
       for (const b of asSubmitted.beats) for (const p of b.pieces) if (shipped(p.kind, p.name)) known.add(`${p.kind}:${p.name}`)
-      const problems = checkScript(asSubmitted, known).filter((p) => !/film clip/.test(p))
+      const problems = checkScript(asSubmitted, known, { submission: false }).filter((p) => !/film clip/.test(p))
       if (problems.length) return res.status(422).json({ error: problems.join(' ') })
+      if (Array.isArray(script.hooks) && script.hooks[script.hook || 0]) script.hooks = script.hooks.map((h, i) => (i === (script.hook || 0) ? { ...h, say: script.beats[0].say } : h))
       await setReel(id, { script, revision: (reel.revision || 1) + 1 })
+      return res.json({ ok: true })
+    }
+
+    if (action === 'hook') {
+      const i = Number(req.body?.index)
+      const hooks = reel.script?.hooks
+      if (!Array.isArray(hooks) || !hooks[i]) return res.status(400).json({ error: 'No such hook' })
+      if (reel.status !== 'script_review') return res.status(409).json({ error: 'The hook can only be changed while the script is in review' })
+      const { style, ...beat } = hooks[i]
+      const beats = [beat, ...reel.script.beats.slice(1)]
+      await setReel(id, { script: { ...reel.script, beats, hook: i }, revision: (reel.revision || 1) + 1 })
       return res.json({ ok: true })
     }
 
