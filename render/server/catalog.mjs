@@ -59,7 +59,7 @@ export function mountCatalog(app, { supabase, library }) {
 Propose ${count} NEW assets: ${count - clips} cut-outs ("piece") and ${clips} film clips ("clip").
 - A cut-out is ONE ordinary physical object, described so an image model can draw it alone: material, age, wear, angle. E.g. "a worn coir doormat seen from above", "a steel tiffin carrier with three tiers".
 - A clip is ONE simple action done by hands with objects, in one or two sentences, never faces, never text. E.g. "Two hands pass a wrapped gift across a table and let go."
-- Favour objects and gestures that many reels could use: things people exchange, eat with, wait with, clean with, greet with. Mix cultures, including South Asian and North American everyday life.
+- Favour objects and gestures that many reels could use: things people exchange, eat with, wait with, clean with, greet with. Draw on everyday life from all over the world, across regions, classes and city and village, so the library can illustrate any society a reel discusses. Do not default to any one country or region.
 - Names are lowercase-with-hyphens, 1 to 4 words, describing the thing, e.g. "steel-tiffin", "hands-pass-gift".
 - Themes: ${Object.entries(THEMES).map(([k, v]) => `${k} = ${v}`).join('; ')}.
 - Tags: 2 to 5 single words a script writer might search for.

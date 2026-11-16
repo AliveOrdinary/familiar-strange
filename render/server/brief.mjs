@@ -18,7 +18,7 @@ const RESEARCH = `Research rules:
 - Every reel rests on one anchor: a named author, a named work and its year, all confirmed in search results. Prefer the original scholar over a pop summary.
 - Quote only words you have seen attributed to that author in a search result, and keep quotes to a few words. If you cannot confirm a quote, paraphrase.
 - Never invent studies, statistics or examples. If the evidence for an idea is thin or disputed, drop the idea or say so plainly in the script.
-- Look for one concrete real-world example the viewer can picture, and where it exists, a cross-cultural contrast (the same habit done differently somewhere else, for instance South India compared with Canada).`
+- Look for one concrete real-world example the viewer can picture, and where it exists, a cross-cultural contrast (the same habit done differently somewhere else). Draw examples from anywhere in the world, choosing whichever society the research shows most clearly; do not default to the same few countries.`
 
 export const BANK_SYSTEM = `${SHOW}
 
