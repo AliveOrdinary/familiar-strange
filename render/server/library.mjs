@@ -45,6 +45,9 @@ const CHECK_RULES = {
 export function mountLibrary(app, { supabase, publicDir, self }) {
   const dirs = { piece: join(publicDir, 'lib', 'pieces'), clip: join(publicDir, 'lib', 'clips'), keyframe: join(publicDir, 'lib', 'keyframes') }
   for (const d of Object.values(dirs)) mkdirSync(d, { recursive: true })
+  // Anything left half-made by a restart goes back in the queue (catalog) or is marked failed.
+  supabase.from('library').update({ status: 'queued' }).eq('status', 'generating').eq('source', 'catalog').then(() => {})
+  supabase.from('library').update({ status: 'error', error: 'Interrupted by a restart; tap Regenerate.' }).eq('status', 'generating').neq('source', 'catalog').then(() => {})
   const hooks = {} // set by the studio: what to do when an asset is approved
   const urlOf = (row) => (row.file ? `${self}/lib/${row.kind === 'piece' ? 'pieces' : 'clips'}/${row.file}` : null)
 
@@ -71,11 +74,11 @@ export function mountLibrary(app, { supabase, publicDir, self }) {
         { inlineData: { mimeType, data: buf.toString('base64') } },
         `This is ${CHECK_RULES[what]} for an Instagram reel made as a paper collage. It is supposed to show: ${description}
 
-Fail it only for clear problems a viewer would notice:
+Fail it only for clear, unmistakable problems a casual viewer would notice at a glance on a phone. Heavy film grain, blur and soft focus are part of the style and are never a problem.
 - a face is visibly distorted (warped features, extra or missing eyes, melted skin)
 - readable text, letters, numbers, logos or a watermark appear
-- it is in colour rather than black and white${what === 'piece' ? '' : `
-- hands or fingers are malformed (extra, missing or fused fingers)`}${what === 'clip' ? `
+- it is in colour rather than black and white${what === 'clip' ? `
+- a hand obviously has the wrong number of fingers, or there are extra hands or arms (film grain and blur that soften fingers are NOT a problem)` : ''}${what === 'clip' ? `
 - objects melt, morph, appear or vanish unnaturally
 - the described action does not happen` : `
 - it does not show what is described`}
@@ -110,13 +113,13 @@ Answer with ok and a short list of the problems you found (empty if none).`,
         // 1. A still of the first moment: cheap to redo if it's wrong.
         let still, check
         const kPrompt = keyframePrompt(row.description, hints)
-        for (let attempt = 0; attempt < 3; attempt++) {
+        for (let attempt = 0; attempt < 2; attempt++) {
           still = await generateImage(attempt ? `${kPrompt} Avoid: ${(check.problems || []).join('; ')}.` : kPrompt, { aspectRatio: '9:16' })
           cost += COST.image
           check = await inspect('keyframe', still, still[0] === 0x89 ? 'image/png' : 'image/jpeg', row.description)
           if (check.ok) break
         }
-        if (!check.ok) throw new Error('The still frame kept failing the check: ' + (check.problems || []).join('; '))
+        if (!check.ok) notes.push('Still: ' + (check.problems || []).join('; '))
         const keyframe = `${row.name}-${stamp}.${still[0] === 0x89 ? 'png' : 'jpg'}`
         writeFileSync(join(dirs.keyframe, keyframe), still)
         // 2. Animate it.
