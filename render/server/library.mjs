@@ -23,16 +23,17 @@ export const TOSS_REASONS = {
   ai_look: { label: 'AI look', hint: 'It must look like a real, slightly imperfect photograph from an old newspaper or 16mm documentary: ordinary light, worn real objects, nothing glossy, smooth, symmetrical or too perfect.' },
   wrong: { label: 'Wrong thing', hint: 'Show exactly the object or action described, literally and simply, and nothing else.' },
   hands: { label: 'Weird hands', hint: 'Keep hands simple and natural with five relaxed fingers each, partly out of frame if possible.' },
-  faces_text: { label: 'Face or text', hint: 'Absolutely no faces or heads, no lettering, labels, logos or numbers anywhere.' },
+  faces_text: { label: 'Text or logo', hint: 'No lettering, labels, logos or numbers anywhere.' },
+  face: { label: 'Uncanny face', hint: 'When people appear, keep them natural and unposed: faces relaxed, turned slightly away or partly in shadow, never staring into the camera, never glossy or doll-like.' },
   boring: { label: 'Boring', hint: 'Pick a characterful, specific example with interesting texture, filling the frame from a close, slightly unusual angle.' },
 }
 
 const piecePrompt = (d, hints) =>
   `A single hand-cut paper cut-out of ${d}, as a black-and-white halftone photograph with visible print dots, with a thick uneven white paper border around its outline. Centred on a completely flat, solid bright green background (#00FF00). No shadow, no other objects, no text.${hints}`
 const keyframePrompt = (d, hints) =>
-  `A single still frame from black-and-white 16mm documentary film with heavy film grain, vertical 9:16, static camera, close shot: ${d.replace(/\.?\s*$/, '.')} This is the first moment of the action. Only hands, never faces or heads. No text, no logos.${hints}`
+  `A single still frame from black-and-white 16mm documentary film with heavy film grain, vertical 9:16, static camera, close shot: ${d.replace(/\.?\s*$/, '.')} This is the first moment of the action. Ordinary people, natural and unposed, not looking at the camera. No text, no logos.${hints}`
 const clipPrompt = (d, hints) =>
-  `Black and white documentary film footage with heavy film grain. Static camera. ${d.replace(/\.?\s*$/, '.')} Only hands and objects, never faces. Natural, unhurried movement. No text, no captions, no watermark.${hints}`
+  `Black and white documentary film footage with heavy film grain. Static camera. ${d.replace(/\.?\s*$/, '.')} Ordinary people, natural and unposed, not looking at the camera. Natural, unhurried movement. No text, no captions, no watermark.${hints}`
 
 const CHECK_SCHEMA = { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' }, problems: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['ok', 'problems'] }
 const CHECK_RULES = {
@@ -71,7 +72,7 @@ export function mountLibrary(app, { supabase, publicDir, self }) {
         `This is ${CHECK_RULES[what]} for an Instagram reel made as a paper collage. It is supposed to show: ${description}
 
 Fail it only for clear problems a viewer would notice:
-- a human face or head is visible, even partly
+- a face is visibly distorted (warped features, extra or missing eyes, melted skin)
 - readable text, letters, numbers, logos or a watermark appear
 - it is in colour rather than black and white${what === 'piece' ? '' : `
 - hands or fingers are malformed (extra, missing or fused fingers)`}${what === 'clip' ? `

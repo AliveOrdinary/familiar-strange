@@ -126,7 +126,7 @@ Hooks:
 
 Picture rules (the reel is a paper collage: black-and-white cut-out photos on coloured paper, with a few short film clips in taped paper frames):
 - Each beat has a layout and one to three pieces. A piece is a cut-out (a single object, described so an image model can draw it alone on a plain ground) or a film clip.
-- Two or three film clips in the whole reel: one in the hook (as its first piece), and one or two more on "film" beats, on lines that describe an action. Use only two if a third would be forced. Clips show hands and objects doing one simple action; never faces, never text, never brands. Each clip is a different action.
+- Two or three film clips in the whole reel: one in the hook (as its first piece), and one or two more on "film" beats, on lines that describe an action. Use only two if a third would be forced. Clips show one simple everyday action; people and faces may appear, but never text and never brands. Each clip is a different action.
 - "at" is the number of the sentence in that beat (counting from 0) on which the piece or label appears, so pictures land on the words they illustrate.
 - The stage must never be empty: in every beat at least one piece appears on sentence 0. Later pieces and labels can then arrive on later sentences.
 - Reuse names from the library list you are given whenever they fit; only invent a new piece when nothing there works. New names are lowercase with hyphens.
