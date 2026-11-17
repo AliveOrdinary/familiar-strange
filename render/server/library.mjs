@@ -31,9 +31,9 @@ export const TOSS_REASONS = {
 const piecePrompt = (d, hints) =>
   `A single hand-cut paper cut-out of ${d}, as a black-and-white halftone photograph with visible print dots, with a thick uneven white paper border around its outline. Centred on a completely flat, solid bright green background (#00FF00). No shadow, no other objects, no text.${hints}`
 const keyframePrompt = (d, hints) =>
-  `A single still frame from black-and-white 16mm documentary film with heavy film grain, vertical 9:16, static camera, close shot: ${d.replace(/\.?\s*$/, '.')} This is the first moment of the action. Ordinary people, natural and unposed, not looking at the camera. No text, no logos.${hints}`
+  `A single still frame from black-and-white 16mm documentary film with heavy film grain, vertical 9:16, static camera, medium shot that shows the people and the setting, with hands small in the frame rather than in close-up: ${d.replace(/\.?\s*$/, '.')} This is the first moment of the action. Ordinary people, natural and unposed, not looking at the camera. No text, no logos.${hints}`
 const clipPrompt = (d, hints) =>
-  `Black and white documentary film footage with heavy film grain. Static camera. ${d.replace(/\.?\s*$/, '.')} Ordinary people, natural and unposed, not looking at the camera. Natural, unhurried movement. No text, no captions, no watermark.${hints}`
+  `Black and white documentary film footage with heavy film grain. Static camera. ${d.replace(/\.?\s*$/, '.')} Medium shot: the people and the setting, hands small in the frame, never a close-up of fingers. Ordinary people, natural and unposed, not looking at the camera. Natural, unhurried movement. No text, no captions, no watermark.${hints}`
 
 const CHECK_SCHEMA = { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' }, problems: { type: 'ARRAY', items: { type: 'STRING' } } }, required: ['ok', 'problems'] }
 const CHECK_RULES = {
