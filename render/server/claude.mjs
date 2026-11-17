@@ -16,10 +16,9 @@ export async function research({ system, user, tool, maxSearches = 8, check, max
   const messages = [{ role: 'user', content: user }]
   const usage = { searches: 0, input: 0, output: 0 }
   let repairs = 0
-  let forced = false
   for (let turn = 0; turn < 10; turn++) {
     const msg = await api().messages
-      .stream({ model: MODEL, max_tokens: maxTokens, system, tools, messages, ...(forced ? { tool_choice: { type: 'tool', name: tool.name } } : {}) })
+      .stream({ model: MODEL, max_tokens: maxTokens, system, tools, messages })
       .finalMessage()
     usage.searches += msg.usage?.server_tool_use?.web_search_requests || 0
     usage.input += msg.usage?.input_tokens || 0
@@ -29,8 +28,8 @@ export async function research({ system, user, tool, maxSearches = 8, check, max
     const call = msg.content.find((b) => b.type === 'tool_use' && b.name === tool.name)
     if (!call) {
       if (msg.stop_reason === 'max_tokens') throw new Error('Claude ran out of room before submitting; try again')
-      messages.push({ role: 'user', content: `Call ${tool.name} now with your final answer.` })
-      forced = true
+      // This model doesn't accept a forced tool_choice, so it is asked in words.
+      messages.push({ role: 'user', content: `Stop researching and call ${tool.name} now with your final answer. Do not reply in plain text.` })
       continue
     }
     const problems = check ? check(call.input) : []
@@ -40,7 +39,6 @@ export async function research({ system, user, tool, maxSearches = 8, check, max
       role: 'user',
       content: [{ type: 'tool_result', tool_use_id: call.id, is_error: true, content: 'Not accepted. Fix every problem and submit again:\n- ' + problems.join('\n- ') }],
     })
-    forced = true
   }
   throw new Error('Claude did not finish within the turn limit')
 }
