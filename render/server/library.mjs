@@ -65,9 +65,9 @@ export function mountLibrary(app, { supabase, publicDir, self }) {
     return hints.length ? ' ' + hints.join(' ') : ''
   }
 
-  // Gemini looks at the result and lists clear problems. A failed check never
-  // blocks anything by itself: after one retry the result goes to review with
-  // the problems shown, so a picky check can't waste money.
+  // Gemini looks at the result and lists clear problems. The check never
+  // blocks or retries anything: whatever it finds is shown to you in review,
+  // and you decide whether to keep or toss.
   async function inspect(what, buf, mimeType, description) {
     try {
       return await askGemini([
@@ -98,7 +98,7 @@ Answer with ok and a short list of the problems you found (empty if none).`,
       const hints = await hintsFor(row.kind)
       if (row.kind === 'piece') {
         let keyed, check, prompt = piecePrompt(row.description, hints)
-        for (let attempt = 0; attempt < 2; attempt++) {
+        for (let attempt = 0; attempt < 1; attempt++) { // the check only flags; you decide
           const raw = await generateImage(attempt ? `${prompt} Avoid: ${(check.problems || []).join('; ')}.` : prompt)
           cost += COST.image
           keyed = await keyGreen(raw)
@@ -113,7 +113,7 @@ Answer with ok and a short list of the problems you found (empty if none).`,
         // 1. A still of the first moment: cheap to redo if it's wrong.
         let still, check
         const kPrompt = keyframePrompt(row.description, hints)
-        for (let attempt = 0; attempt < 2; attempt++) {
+        for (let attempt = 0; attempt < 1; attempt++) { // the check only flags; you decide
           still = await generateImage(attempt ? `${kPrompt} Avoid: ${(check.problems || []).join('; ')}.` : kPrompt, { aspectRatio: '9:16' })
           cost += COST.image
           check = await inspect('keyframe', still, still[0] === 0x89 ? 'image/png' : 'image/jpeg', row.description)
@@ -125,7 +125,7 @@ Answer with ok and a short list of the problems you found (empty if none).`,
         // 2. Animate it.
         let mp4
         const prompt = clipPrompt(row.description, hints)
-        for (let attempt = 0; attempt < 2; attempt++) {
+        for (let attempt = 0; attempt < 1; attempt++) { // the check only flags; you decide
           mp4 = await generateVideo(attempt ? `${prompt} Avoid: ${(check.problems || []).join('; ')}.` : prompt, { image: still })
           cost += COST.clip
           check = await inspect('clip', mp4, 'video/mp4', row.description)
