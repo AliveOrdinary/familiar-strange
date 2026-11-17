@@ -15,7 +15,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { research, claudeConfigured } from './claude.mjs'
 import { vertexConfigured } from './vertex.mjs'
-import { BANK_SYSTEM, BANK_TOOL, SCRIPT_SYSTEM, SCRIPT_TOOL, checkScript, toRenderScript, captionWithQuestion } from './brief.mjs'
+import { BANK_SYSTEM, BANK_TOOL, SCRIPT_SYSTEM, SCRIPT_TOOL, EDITOR_SYSTEM, EDITOR_TOOL, checkScript, toRenderScript, captionWithQuestion } from './brief.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
@@ -98,10 +98,37 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
     if (topic.example) user += `Possible example: ${topic.example}\n`
     user += `\nLibrary (kind: name — what it shows) you can reuse. Prefer these over inventing new assets:\n${names}`
     if (previous) user += `\n\nThis is a revision. The previous script was:\n${JSON.stringify({ beats: previous.beats.map((b) => ({ layout: b.layout, headline: b.headline, say: b.say })) })}\n\nThe reviewer's note, which you must address: ${note}`
-    const { result, usage, model } = await research({ system: SCRIPT_SYSTEM, user, tool: SCRIPT_TOOL, maxSearches: 8, check: (s) => checkScript(s, known) })
+    const check = (x) => (x.fits === false ? ((x.better_angle || '').trim().length > 10 ? [] : ['When fits is false, give a sharper question in better_angle.']) : checkScript(x, known))
+    const draft = await research({ system: SCRIPT_SYSTEM, user, tool: SCRIPT_TOOL, maxSearches: 8, check })
+    const usage = { ...draft.usage }
+    if (draft.result.fits === false) {
+      await setReel(reelId, { status: 'error', error: `Claude thinks this doesn't make a good 40-second reel. A sharper question: “${draft.result.better_angle}”`, factcheck: { model: draft.model, searches: usage.searches, tokens_in: usage.input, tokens_out: usage.output } })
+      return
+    }
+    // The editor pass: read it as a viewer would, and rewrite what doesn't land.
+    let result = draft.result
+    let editorNotes = null
+    try {
+      const edited = await research({
+        system: EDITOR_SYSTEM,
+        user: `Question: ${topic.title}\n\nThe writer's draft:\n${JSON.stringify(draft.result)}`,
+        tool: EDITOR_TOOL,
+        maxSearches: 0,
+        maxTokens: 8000,
+        check: (x) => checkScript({ ...x, fits: true }, known),
+      })
+      result = { ...edited.result, fits: true }
+      editorNotes = edited.result.editor_notes || null
+      usage.input += edited.usage.input
+      usage.output += edited.usage.output
+    } catch (e) {
+      console.warn('editor pass skipped:', e.message)
+      editorNotes = 'Editor pass failed, so this is the first draft: ' + String(e.message).slice(0, 200)
+    }
+    const model = draft.model
     await setReel(reelId, {
       status: 'script_review',
-      script: toRenderScript(result),
+      script: { ...toRenderScript(result), editor_notes: editorNotes },
       caption: captionWithQuestion(result.caption, result.comment_question),
       factcheck: { model, searches: usage.searches, tokens_in: usage.input, tokens_out: usage.output },
       error: null,

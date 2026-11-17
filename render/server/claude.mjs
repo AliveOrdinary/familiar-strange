@@ -12,7 +12,7 @@ const api = () => (client ||= new Anthropic({ apiKey: process.env.ANTHROPIC_API_
 
 export async function research({ system, user, tool, maxSearches = 8, check, maxTokens = 8000 }) {
   if (!claudeConfigured()) throw new Error('ANTHROPIC_API_KEY is not set on the stack')
-  const tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxSearches }, tool]
+  const tools = maxSearches > 0 ? [{ type: 'web_search_20250305', name: 'web_search', max_uses: maxSearches }, tool] : [tool]
   const messages = [{ role: 'user', content: user }]
   const usage = { searches: 0, input: 0, output: 0 }
   let repairs = 0

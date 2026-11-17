@@ -101,12 +101,23 @@ Your job now is to research one question and write the reel.
 
 ${RESEARCH}
 
+Every reel is built around ONE turn: a single finding that makes the viewer see their own habit differently, stated in one sentence they could repeat at dinner. E.g. "A tip is a gift that can only flow down." "Dirt is just matter in the wrong place." Find the turn first. If the research doesn't give you a turn that would make a stranger say "huh, interesting", set fits to false and suggest a sharper angle in better_angle instead of forcing a script.
+
+The shape of a reel (six beats):
+1. Hook: a familiar puzzle from the viewer's own life, ending in the question.
+2. The obvious answer, briefly, so it can be set aside ("You'd think it's about hygiene."). Skip it only if there is no common assumption.
+3. The turn, credited aloud to whoever found it, with the year.
+4. The proof: one vivid, concrete example that makes the turn click, ideally from somewhere else in the world.
+5. Back to the viewer: apply the turn to their own life so they see their habit differently.
+6. Payoff: the turn again as a quotable line that answers the hook.
+
+One explanation only. Never stack competing theories, earlier versions or revisions in the voiceover; they go in the caption. Every beat answers the question the previous beat raised, so the reel reads as one story.
+
 Script rules:
-- Six beats. 85 to 110 spoken words in total, which with pauses is about 40 to 48 seconds. Count them; over 110 is too long.
-- Beat 1 is the hook: a concrete everyday contrast or moment, ending in the question. The rest of the script MUST answer exactly that question; the last beat states the answer in a line the viewer could repeat to a friend.
-- One idea per beat. Name the anchor author and year aloud in the beat where the finding appears.
-- Write for the ear: short sentences, contractions, no brackets, no semicolons, no lists of three abstractions.
-- Pauses: put a mark like [0.4] after a sentence to hold that many seconds before the next one. Use them after the hook question and before a reveal. Never put a mark at the very start of a beat.
+- 75 to 110 spoken words in total, about 35 to 48 seconds.
+- Write for the ear: full, plain sentences a friend would say out loud. No fragments, no telegraphic lines, no jargon. If a term needs explaining, explain it in plain words or leave it out. Contractions are good; no brackets, no semicolons.
+- Name the scholar and year aloud on the turn beat.
+- Pauses: put a mark like [0.4] after a sentence to hold that many seconds before the next one. Use them after the hook question and just before the turn. Never put a mark at the very start of a beat.
 
 Hooks:
 - The first sentence is a concrete contradiction, a surprising true fact, or a small sting the viewer recognises. No warm-up, no "Have you ever wondered".
@@ -115,7 +126,7 @@ Hooks:
 
 Picture rules (the reel is a paper collage: black-and-white cut-out photos on coloured paper, with a few short film clips in taped paper frames):
 - Each beat has a layout and one to three pieces. A piece is a cut-out (a single object, described so an image model can draw it alone on a plain ground) or a film clip.
-- Exactly three film clips in the whole reel: one in the hook (as its first piece), and two more on "film" beats spread through the rest, on the lines that describe an action. Clips show hands and objects doing one simple action; never faces, never text, never brands. Each clip is a different action.
+- Two or three film clips in the whole reel: one in the hook (as its first piece), and one or two more on "film" beats, on lines that describe an action. Use only two if a third would be forced. Clips show hands and objects doing one simple action; never faces, never text, never brands. Each clip is a different action.
 - "at" is the number of the sentence in that beat (counting from 0) on which the piece or label appears, so pictures land on the words they illustrate.
 - The stage must never be empty: in every beat at least one piece appears on sentence 0. Later pieces and labels can then arrive on later sentences.
 - Reuse names from the library list you are given whenever they fit; only invent a new piece when nothing there works. New names are lowercase with hyphens.
@@ -133,7 +144,7 @@ Also write the Instagram caption: two or three plain sentences that add one deta
 
 And a comment_question: one short question only the viewer can answer, usually comparing how their family, country or workplace does it, e.g. "Do you tip where you live? How much?". Never a yes/no about the reel itself. It is added to the caption.
 
-When you are done researching, call submit_script once.`
+When you are done researching, call submit_script once. Put the turn in "turn".`
 
 export const HOOK_STYLES = ['contradiction', 'surprising fact', 'sting']
 
@@ -142,7 +153,7 @@ export const SCRIPT_TOOL = {
   description: 'Submit the finished reel.',
   input_schema: {
     type: 'object',
-    required: ['palette', 'beats', 'hook_style', 'alt_hooks', 'assets', 'sources', 'caption', 'comment_question'],
+    required: ['fits', 'turn', 'palette', 'beats', 'hook_style', 'alt_hooks', 'assets', 'sources', 'caption', 'comment_question'],
     properties: {
       palette: { type: 'string', enum: Object.keys(THEMES) },
       beats: {
@@ -186,6 +197,9 @@ export const SCRIPT_TOOL = {
         items: { type: 'object', required: ['claim', 'title', 'url'], properties: { claim: { type: 'string' }, title: { type: 'string' }, url: { type: 'string' } } },
       },
       caption: { type: 'string' },
+      fits: { type: 'boolean', description: 'False if this question has no turn that works in 40 seconds.' },
+      better_angle: { type: 'string', description: 'When fits is false: a sharper question that would work.' },
+      turn: { type: 'string', description: 'The one finding the reel builds to, in one sentence a viewer could repeat.' },
       comment_question: { type: 'string', description: 'One short question that invites viewers to say how they do it, under 100 characters.' },
       hook_style: { type: 'string', enum: HOOK_STYLES },
       alt_hooks: {
@@ -223,7 +237,7 @@ export function checkScript(s, known = new Set(), { submission = true } = {}) {
   const beats = s?.beats || []
   if (beats.length !== 6) out.push(`There must be exactly 6 beats; there are ${beats.length}.`)
   const total = beats.reduce((n, b) => n + words(b.say || ''), 0)
-  if (total < 80 || total > 112) out.push(`The script has ${total} spoken words; it must be between 85 and 110.`)
+  if (total < 70 || total > 115) out.push(`The script has ${total} spoken words; it must be between 75 and 110.`)
   const declared = new Set((s?.assets || []).map((a) => `${a.kind}:${a.name}`))
 
   function checkBeat(b, n) {
@@ -271,9 +285,10 @@ export function checkScript(s, known = new Set(), { submission = true } = {}) {
   beats.forEach((b, i) => { clips += checkBeat(b, `Beat ${i + 1}`) })
   if (beats[0] && beats[0].layout !== 'hook') out.push('Beat 1 must use the hook layout.')
   if (beats[5] && beats[5].layout !== 'payoff') out.push('Beat 6 must use the payoff layout.')
-  if (clips !== 3) out.push(`There are ${clips} film clips; there must be exactly 3 (one in the hook, two on "film" beats).`)
+  if (clips < 2 || clips > 3) out.push(`There are ${clips} film clips; use 2 or 3 (one in the hook, the rest on "film" beats).`)
 
   if (submission) {
+    if ((s?.turn || '').trim().length < 15) out.push('State the turn in one full sentence in "turn".')
     const alts = s?.alt_hooks || []
     if (alts.length !== 2) out.push(`Give exactly 2 alt_hooks; there are ${alts.length}.`)
     const styles = new Set([s?.hook_style, ...alts.map((a) => a.style)])
@@ -282,7 +297,7 @@ export function checkScript(s, known = new Set(), { submission = true } = {}) {
       const clipsIn = checkBeat({ ...h, layout: 'hook' }, `Alternative hook ${i + 1}`)
       if (clipsIn !== 1) out.push(`Alternative hook ${i + 1} must contain exactly one film clip, as its first piece.`)
       const t = total - words(beats[0]?.say || '') + words(h.say || '')
-      if (t < 80 || t > 112) out.push(`With alternative hook ${i + 1} the script has ${t} words; keep it between 85 and 110.`)
+      if (t < 70 || t > 115) out.push(`With alternative hook ${i + 1} the script has ${t} words; keep it between 75 and 110.`)
     })
     const q = (s?.comment_question || '').trim()
     if (!q.endsWith('?') || q.length > 120) out.push('comment_question must be one question under 120 characters, ending with "?".')
@@ -313,6 +328,7 @@ export function toRenderScript(s, number) {
     beats,
     hooks,
     hook: 0,
+    turn: s.turn,
     assets: s.assets || [],
     sources: s.sources || [],
   }
@@ -325,4 +341,25 @@ export function captionWithQuestion(caption, question) {
   if (!q) return c
   const i = c.search(/\n\s*Sources:/i)
   return i === -1 ? `${c}\n\n${q}` : `${c.slice(0, i).trim()}\n\n${q}\n\n${c.slice(i).trim()}`
+}
+
+export const EDITOR_SYSTEM = `${SHOW}
+
+You are the editor. A writer has drafted a reel script. Read it as a first-time viewer hearing it at speaking pace, then make it better. Check:
+1. The turn: is there one clear finding the whole reel builds to, and would it make a stranger say "huh, interesting"? Is it stated plainly on the turn beat and landed again in the payoff?
+2. One story: does each beat answer the question the previous one raised? Cut anything that is a second theory, a detour, a revision or a hedge; that belongs in the caption.
+3. Plain speech: would a friend actually say each sentence out loud? Rewrite fragments, jargon and stiff academic phrasing into plain, warm sentences. Explain or cut any term a viewer wouldn't know.
+4. The hook: does the first sentence grab, and does the rest answer exactly the question it asks? Do all three hooks lead into beat 2?
+5. Truth: never add a claim the sources don't support. If you remove a claim, drop its source too.
+
+Keep the format: same JSON shape, same layouts, picture names and "at" cues unless a change of words requires moving a cue; keep within the word range. You may rewrite any spoken text, headlines, labels and the caption.
+
+Return the full improved script with submit_script, and list what you changed in editor_notes.`
+
+export const EDITOR_TOOL = {
+  ...SCRIPT_TOOL,
+  input_schema: {
+    ...SCRIPT_TOOL.input_schema,
+    properties: { ...SCRIPT_TOOL.input_schema.properties, editor_notes: { type: 'string', description: 'What you changed and why, briefly.' } },
+  },
 }
