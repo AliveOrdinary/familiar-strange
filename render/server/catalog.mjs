@@ -38,7 +38,15 @@ const CATALOG_SCHEMA = {
 }
 
 const slug = (s) => String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40)
-const today = () => new Date().toISOString().slice(0, 10)
+// Days run on the owner's clock, not UTC, so "today" means today in Toronto.
+const TZ = process.env.CATALOG_TZ || 'America/Toronto'
+const today = () => new Date().toLocaleDateString('en-CA', { timeZone: TZ }) // YYYY-MM-DD
+function dayStart() {
+  const off = new Intl.DateTimeFormat('en-US', { timeZone: TZ, timeZoneName: 'longOffset' }).formatToParts(new Date()).find((p) => p.type === 'timeZoneName')?.value || 'GMT'
+  const m = off.match(/GMT([+-]\d{2}):?(\d{2})?/)
+  return new Date(`${today()}T00:00:00${m ? `${m[1]}:${m[2] || '00'}` : 'Z'}`).toISOString()
+}
+const localDay = (iso) => (iso ? new Date(iso).toLocaleDateString('en-CA', { timeZone: TZ }) : '')
 
 export function mountCatalog(app, { supabase, library }) {
   const state = { paused: process.env.CATALOG_PAUSED === '1', busy: false, drafting: false, last: null, lastError: null }
@@ -58,7 +66,7 @@ export function mountCatalog(app, { supabase, library }) {
 
 Propose ${count} NEW assets: ${count - clips} cut-outs ("piece") and ${clips} film clips ("clip").
 - A cut-out is ONE ordinary physical object, described so an image model can draw it alone: material, age, wear, angle. E.g. "a worn coir doormat seen from above", "a steel tiffin carrier with three tiers".
-- A clip is ONE simple action done by hands with objects, in one or two sentences, never faces, never text. E.g. "Two hands pass a wrapped gift across a table and let go."
+- A clip is ONE simple action done by hands with objects on a table, floor or counter, in one or two sentences, never faces, never text. Keep the hands away from the body: no actions near the face, neck, hair or chest (no ties, glasses, collars, earrings), because those pull faces into frame. E.g. "Two hands pass a wrapped gift across a table and let go."
 - Favour objects and gestures that many reels could use: things people exchange, eat with, wait with, clean with, greet with. Draw on everyday life from all over the world, across regions, classes and city and village, so the library can illustrate any society a reel discusses. Do not default to any one country or region.
 - Names are lowercase-with-hyphens, 1 to 4 words, describing the thing, e.g. "steel-tiffin", "hands-pass-gift".
 - Themes: ${Object.entries(THEMES).map(([k, v]) => `${k} = ${v}`).join('; ')}.
@@ -92,11 +100,11 @@ ${[...have].join(', ') || '(empty)'}`,
   }
 
   async function counts() {
-    const since = `${today()}T00:00:00Z`
+    const since = dayStart()
     const q = (kind, f) => f(supabase.from('library').select('id', { count: 'exact', head: true }).eq('kind', kind).eq('source', 'catalog')).then((r) => r.count || 0)
     const [clipsToday, piecesToday, clipsQueued, piecesQueued, backlog] = await Promise.all([
-      q('clip', (x) => x.gte('generated_at', since)),
-      q('piece', (x) => x.gte('generated_at', since)),
+      q('clip', (x) => x.gte('generated_at', since).neq('status', 'error')),
+      q('piece', (x) => x.gte('generated_at', since).neq('status', 'error')),
       q('clip', (x) => x.eq('status', 'queued')),
       q('piece', (x) => x.eq('status', 'queued')),
       supabase.from('library').select('id', { count: 'exact', head: true }).eq('source', 'catalog').eq('status', 'pending').then((r) => r.count || 0),
@@ -139,7 +147,7 @@ ${[...have].join(', ') || '(empty)'}`,
       supabase.from('library').select('kind').eq('status', 'approved'),
     ])
     const spent = (spentRows || []).reduce((n, r) => n + Number(r.cost || 0), 0)
-    const spentToday = (spentRows || []).filter((r) => (r.generated_at || '').startsWith(today())).reduce((n, r) => n + Number(r.cost || 0), 0)
+    const spentToday = (spentRows || []).filter((r) => localDay(r.generated_at) === today()).reduce((n, r) => n + Number(r.cost || 0), 0)
     res.json({
       items: (items || []).map((r) => ({ ...r, url: r.file ? `/lib/${r.kind === 'clip' ? 'clips' : 'pieces'}/${r.file}` : null })),
       reasons: Object.fromEntries(Object.entries(TOSS_REASONS).map(([k, v]) => [k, v.label])),

@@ -44,14 +44,21 @@ async function accessToken() {
 }
 
 async function call(url, payload) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${await accessToken()}`, 'x-goog-user-project': project(), 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  const body = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(`Vertex AI ${res.status}: ${body.error?.message || 'request failed'}`.slice(0, 400))
-  return body
+  // Google answers 429 when a per-minute quota is used up; wait and try again.
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${await accessToken()}`, 'x-goog-user-project': project(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const body = await res.json().catch(() => ({}))
+    if (res.ok) return body
+    if ((res.status === 429 || res.status === 503) && attempt < 4) {
+      await new Promise((r) => setTimeout(r, 30000 * (attempt + 1)))
+      continue
+    }
+    throw new Error(`Vertex AI ${res.status}: ${body.error?.message || 'request failed'}`.slice(0, 400))
+  }
 }
 
 // Returns a PNG/JPEG buffer. `aspectRatio` (e.g. "9:16") is passed when given;

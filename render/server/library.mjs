@@ -95,7 +95,7 @@ Answer with ok and a short list of the problems you found (empty if none).`,
       if (row.kind === 'piece') {
         let keyed, check, prompt = piecePrompt(row.description, hints)
         for (let attempt = 0; attempt < 2; attempt++) {
-          const raw = await generateImage(attempt ? `${prompt} Avoid: ${check.problems.join('; ')}.` : prompt)
+          const raw = await generateImage(attempt ? `${prompt} Avoid: ${(check.problems || []).join('; ')}.` : prompt)
           cost += COST.image
           keyed = await keyGreen(raw)
           check = await inspect('piece', keyed.png, 'image/png', row.description)
@@ -109,20 +109,20 @@ Answer with ok and a short list of the problems you found (empty if none).`,
         // 1. A still of the first moment: cheap to redo if it's wrong.
         let still, check
         const kPrompt = keyframePrompt(row.description, hints)
-        for (let attempt = 0; attempt < 2; attempt++) {
-          still = await generateImage(attempt ? `${kPrompt} Avoid: ${check.problems.join('; ')}.` : kPrompt, { aspectRatio: '9:16' })
+        for (let attempt = 0; attempt < 3; attempt++) {
+          still = await generateImage(attempt ? `${kPrompt} Avoid: ${(check.problems || []).join('; ')}.` : kPrompt, { aspectRatio: '9:16' })
           cost += COST.image
           check = await inspect('keyframe', still, still[0] === 0x89 ? 'image/png' : 'image/jpeg', row.description)
           if (check.ok) break
         }
-        if (!check.ok) throw new Error('The still frame kept failing the check: ' + check.problems.join('; '))
+        if (!check.ok) throw new Error('The still frame kept failing the check: ' + (check.problems || []).join('; '))
         const keyframe = `${row.name}-${stamp}.${still[0] === 0x89 ? 'png' : 'jpg'}`
         writeFileSync(join(dirs.keyframe, keyframe), still)
         // 2. Animate it.
         let mp4
         const prompt = clipPrompt(row.description, hints)
         for (let attempt = 0; attempt < 2; attempt++) {
-          mp4 = await generateVideo(attempt ? `${prompt} Avoid: ${check.problems.join('; ')}.` : prompt, { image: still })
+          mp4 = await generateVideo(attempt ? `${prompt} Avoid: ${(check.problems || []).join('; ')}.` : prompt, { image: still })
           cost += COST.clip
           check = await inspect('clip', mp4, 'video/mp4', row.description)
           if (check.ok) break
