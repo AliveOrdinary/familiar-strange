@@ -329,6 +329,7 @@ export function toRenderScript(s, number) {
     hooks,
     hook: 0,
     turn: s.turn,
+    comment_question: s.comment_question,
     assets: s.assets || [],
     sources: s.sources || [],
   }

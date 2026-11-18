@@ -30,6 +30,15 @@ const PUBLIC_DIR = join(ROOT, 'public')
 const FPS = 30
 const BREATH_FRAMES = 12 // silence after each beat
 const HOOK_EXTRA_FRAMES = 12 // let the question land before the first beat
+const QUESTION_FRAMES = 75 // the comment question stays on screen this long at the end (matches the template)
+
+// The comment question: from the script, or the question line of the caption.
+function commentQuestion(reel) {
+  if (reel.script?.comment_question) return reel.script.comment_question
+  const body = String(reel.caption || '').split(/\n\s*Sources:/i)[0]
+  const q = body.split(/\n+/).map((l) => l.trim()).filter((l) => l.endsWith('?') && l.length < 140).pop()
+  return q || null
+}
 const PORT = Number(process.env.PORT || 3123)
 const SELF = process.env.PUBLIC_HOST || `http://127.0.0.1:${PORT}`
 const HANDLE = process.env.IG_HANDLE || '@the.familiarstrange'
@@ -105,6 +114,7 @@ async function runJob(reelId, voice) {
   await update(reelId, { status: 'rendering', error: null })
 
   const raw = await scriptBeats(reel.script)
+  const question = commentQuestion(reel)
 
   // 1. Voice. Every sentence is synthesized on its own and the pauses between
   //    them are authored in the script ("Why? [0.6]"), so pacing is ours, not
@@ -115,7 +125,7 @@ async function runJob(reelId, voice) {
   let synthesized = 0
   let reused = 0
   const beats = []
-  for (const b of raw) {
+  for (const [i, b] of raw.entries()) {
     const clips = []
     const captions = []
     const sentenceStarts = []
@@ -146,7 +156,7 @@ async function runJob(reelId, voice) {
       captions,
       sentenceStarts,
       speechFrames: cursor,
-      durationInFrames: cursor + BREATH_FRAMES + (b.layout === 'hook' ? HOOK_EXTRA_FRAMES : 0),
+      durationInFrames: cursor + BREATH_FRAMES + (b.layout === 'hook' ? HOOK_EXTRA_FRAMES : 0) + (question && i === raw.length - 1 ? QUESTION_FRAMES : 0),
     })
   }
   console.log(`TTS (${voice || 'default voice'}): ${synthesized} synthesized, ${reused} reused from cache`)
@@ -161,6 +171,7 @@ async function runJob(reelId, voice) {
     number: reel.script.number || (count || 0) + 1,
     sources: reel.script.sources || '',
     beats,
+    question,
   }
   const comp = await selectComposition({ serveUrl, id: 'CollageReel', inputProps })
   const outPath = join(PUBLIC_DIR, 'out', `${reelId}.mp4`)

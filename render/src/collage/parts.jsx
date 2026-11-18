@@ -103,10 +103,11 @@ export const Shape = ({ kind = 'circle', x, y, size, color, rotate = 0, from = 0
 }
 
 // A cut-out photo piece: flies in from one side, lands with a small overshoot.
-export const Piece = ({ src, x, y, w, rotate = 0, from = 0, enter = 'left', id }) => {
+export const Piece = ({ src, x, y, w, rotate = 0, from = 0, enter = 'left', id , instant = false }) => {
   const f = useSteppedFrame() - from
   if (f < 0) return null
-  const p = interpolate(f, [0, 12], [0, 1], { extrapolateRight: 'clamp', easing: Easing.out(Easing.back(1.4)) })
+  // `instant`: already in place on its first frame (the reel's opening shot)
+  const p = instant ? 1 : interpolate(f, [0, 12], [0, 1], { extrapolateRight: 'clamp', easing: Easing.out(Easing.back(1.4)) })
   const off = { left: [-W, 0], right: [W, 0], top: [0, -900], bottom: [0, 900] }[enter]
   const j = jitter(id, f)
   const dx = off[0] * (1 - p) + j.x
@@ -127,10 +128,11 @@ export const Piece = ({ src, x, y, w, rotate = 0, from = 0, enter = 'left', id }
 // A moving photo: a short film clip printed in black and white, glued inside
 // a white paper frame and taped down. It flies in like any other piece, plays
 // on threes so it shares the stop-motion rhythm, and carries print dots.
-export const Clip = ({ src, x, y, w, h, rotate = 0, from = 0, enter = 'left', id, startFrom = 0 }) => {
+export const Clip = ({ src, x, y, w, h, rotate = 0, from = 0, enter = 'left', id, startFrom = 0 , instant = false }) => {
   const f = useSteppedFrame() - from
   if (f < 0) return null
-  const p = interpolate(f, [0, 12], [0, 1], { extrapolateRight: 'clamp', easing: Easing.out(Easing.back(1.4)) })
+  // `instant`: already in place on its first frame (the reel's opening shot)
+  const p = instant ? 1 : interpolate(f, [0, 12], [0, 1], { extrapolateRight: 'clamp', easing: Easing.out(Easing.back(1.4)) })
   const off = { left: [-W, 0], right: [W, 0], top: [0, -900], bottom: [0, 900] }[enter]
   const j = jitter(id, f, 0.6)
   const dx = off[0] * (1 - p) + j.x
@@ -166,21 +168,21 @@ export const Clip = ({ src, x, y, w, h, rotate = 0, from = 0, enter = 'left', id
 }
 
 // Cut-out headline: each line is its own slab of paper, slapped down in turn.
-export const Headline = ({ lines, top, left = 80, paper, ink, from = 0, font }) => (
+export const Headline = ({ lines, top, left = 80, paper, ink, from = 0, font, instant = false }) => (
   <div style={{ position: 'absolute', top, left, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 14 }}>
     {lines.map((line, i) => (
-      <HeadlineLine key={i} text={line} i={i} from={from + i * 7} paper={i % 2 ? ink : paper} ink={i % 2 ? paper : ink} font={font} />
+      <HeadlineLine key={i} text={line} i={i} from={instant ? 0 : from + i * 7} paper={i % 2 ? ink : paper} ink={i % 2 ? paper : ink} font={font} instant={instant} />
     ))}
   </div>
 )
 
-const HeadlineLine = ({ text, i, from, paper, ink, font }) => {
+const HeadlineLine = ({ text, i, from, paper, ink, font, instant = false }) => {
   const f = useCurrentFrame() - from
   if (f < 0) return <div style={{ height: 150 }} />
   // Text lands once and then holds still: the paper pieces carry the
   // stop-motion jitter, anything that has to be read does not.
-  const s = interpolate(f, [0, 7], [1.18, 1], { extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) })
-  const o = interpolate(f, [0, 4], [0, 1], { extrapolateRight: 'clamp' })
+  const s = instant ? 1 : interpolate(f, [0, 7], [1.18, 1], { extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) })
+  const o = instant ? 1 : interpolate(f, [0, 4], [0, 1], { extrapolateRight: 'clamp' })
   const tilt = [-2.2, 1.4, -1, 1.8][i % 4]
   return (
     <div

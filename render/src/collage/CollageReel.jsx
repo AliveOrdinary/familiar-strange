@@ -35,7 +35,7 @@ const cue = (starts, at, fallback) => (at != null && starts[at] != null ? Math.m
 // Captions sit on the torn strip: the one running text stream. Chunks are
 // timed by length across the spoken part of the beat (word timestamps from
 // the voice will replace this once TTS is wired in).
-const Caption = ({ say, speechFrames, captions, ink }) => {
+const Caption = ({ say, speechFrames, captions, ink, opening = false }) => {
   const frame = useCurrentFrame()
   let text
   let since
@@ -59,7 +59,7 @@ const Caption = ({ say, speechFrames, captions, ink }) => {
     since = frame - starts[active]
   }
   // phrases swap on a near-cut: a 2-frame soften, never a gap with no text
-  const o = interpolate(since, [0, 2], [0.5, 1], { extrapolateRight: 'clamp' })
+  const o = opening && frame < 2 ? 1 : interpolate(since, [0, 2], [0.5, 1], { extrapolateRight: 'clamp' })
   return (
     <div style={{ position: 'absolute', top: STRIP_TOP, left: 70, width: W - 140, height: STRIP_H, display: 'flex', alignItems: 'center', justifyContent: 'center', transform: 'rotate(-1.2deg)' }}>
       <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: 60, lineHeight: 1.15, color: ink, textAlign: 'center', opacity: o, textWrap: 'balance' }}>
@@ -150,19 +150,22 @@ const Beat = ({ beat, index, P }) => {
   const hasHeadline = !!beat.headline
   const main = layout[0]
   const labels = beat.labels || (beat.label ? [{ text: beat.label }] : [])
+  const opening = index === 0
   return (
     <>
       {main ? <DotPatch id={`dp${index}`} x={main.x + main.w * 0.55} y={main.y + main.h * 0.1} w={260} h={Math.min(420, main.h)} color={P.ink} rotate={-3} /> : null}
       <Scatter seed={`b${index}`} P={P} bounds={{ x0: 30, x1: 1050, y0: hasHeadline ? 620 : 330, y1: 1080 }} />
-      {hasHeadline ? <Headline lines={beat.headline} top={230} paper={P.paper} ink={P.ink} from={cue(starts, beat.headlineAt, 3)} font={ANTON} /> : null}
+      {hasHeadline ? <Headline lines={beat.headline} top={230} paper={P.paper} ink={P.ink} from={opening ? 0 : cue(starts, beat.headlineAt, 3)} font={ANTON} instant={opening} /> : null}
       {layout.map((p, i) => {
-        const from = cue(starts, specs[i]?.at, 6 + i * 8) + (specs[i]?.at != null ? i * 3 : 0)
+        // In the opening shot, everything cued to the first sentence is already in place at frame 0.
+        const first = opening && !specs[i]?.at
+        const from = first ? 0 : cue(starts, specs[i]?.at, 6 + i * 8) + (specs[i]?.at != null ? i * 3 : 0)
         return (
           <React.Fragment key={p.name + i}>
             {specs[i]?.clip ? (
-              <Clip id={`${index}c${i}`} src={specs[i].src || staticFile(`clips/${specs[i].clip}.mp4`)} x={p.x} y={p.y} w={p.w} h={p.h} rotate={p.rotate} from={from} enter={p.enter} startFrom={specs[i].startFrom || 0} />
+              <Clip id={`${index}c${i}`} src={specs[i].src || staticFile(`clips/${specs[i].clip}.mp4`)} x={p.x} y={p.y} w={p.w} h={p.h} rotate={p.rotate} from={from} enter={p.enter} startFrom={specs[i].startFrom || 0} instant={first} />
             ) : (
-              <Piece id={`${index}${p.name}`} src={specs[i]?.src || staticFile(`pieces/${p.name}.png`)} x={p.x} y={p.y} w={p.w} rotate={p.rotate} from={from} enter={p.enter} />
+              <Piece id={`${index}${p.name}`} src={specs[i]?.src || staticFile(`pieces/${p.name}.png`)} x={p.x} y={p.y} w={p.w} rotate={p.rotate} from={from} enter={p.enter} instant={first} />
             )}
             {beat.tags?.[i] ? <Tag text={beat.tags[i]} x={p.x + p.w / 2} y={p.y + p.h + 26} P={P} from={from + 10} /> : null}
           </React.Fragment>
@@ -176,7 +179,23 @@ const Beat = ({ beat, index, P }) => {
   )
 }
 
-export const CollageReel = ({ palette = 'tomato', number = 1, beats = [] }) => {
+// The comment question, on screen for the last seconds: most viewers never see the caption.
+export const QUESTION_FRAMES = 75
+const Question = ({ text, P }) => {
+  const f = useCurrentFrame()
+  const s = interpolate(f, [0, 8], [1.12, 1], { extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) })
+  const o = interpolate(f, [0, 5], [0, 1], { extrapolateRight: 'clamp' })
+  return (
+    <div style={{ position: 'absolute', left: 80, right: 80, top: 1500, display: 'flex', justifyContent: 'center', opacity: o, transform: `scale(${s}) rotate(1.2deg)` }}>
+      <div style={{ background: P.ink, color: P.paper, padding: '26px 34px 30px', boxShadow: '0 12px 14px rgba(0,0,0,0.35)', clipPath: 'polygon(0 2%, 99.4% 0, 100% 97%, 0.6% 100%)', maxWidth: 900 }}>
+        <div style={{ fontFamily: MONO, fontWeight: 700, fontSize: 26, letterSpacing: 5, opacity: 0.75, marginBottom: 10 }}>TELL US IN THE COMMENTS</div>
+        <div style={{ fontFamily: "'Inter', sans-serif", fontWeight: 800, fontSize: 52, lineHeight: 1.15, textWrap: 'balance' }}>{text}</div>
+      </div>
+    </div>
+  )
+}
+
+export const CollageReel = ({ palette = 'tomato', number = 1, beats = [], question = null }) => {
   const P = PALETTES[palette] || PALETTES.tomato
   return (
     <AbsoluteFill style={{ background: P.ground }}>
@@ -199,7 +218,7 @@ export const CollageReel = ({ palette = 'tomato', number = 1, beats = [] }) => {
       <TornStrip top={STRIP_TOP} height={STRIP_H} color={P.paper} />
       {beats.map((b, i) => (
         <Sequence key={'c' + i} from={startOf(beats, i)} durationInFrames={beatFrames(b)} layout="none">
-          <Caption say={b.say} speechFrames={b.speechFrames || beatFrames(b) - 12} captions={b.captions} ink={P.ink} />
+          <Caption say={b.say} speechFrames={b.speechFrames || beatFrames(b) - 12} captions={b.captions} ink={P.ink} opening={i === 0} />
           {(b.clips || []).map((c, k) => (
             <Sequence key={k} from={c.from} layout="none">
               <Audio src={c.src} />
@@ -208,6 +227,11 @@ export const CollageReel = ({ palette = 'tomato', number = 1, beats = [] }) => {
         </Sequence>
       ))}
 
+      {question && beats.length ? (
+        <Sequence from={startOf(beats, beats.length - 1) + beatFrames(beats[beats.length - 1]) - QUESTION_FRAMES} durationInFrames={QUESTION_FRAMES} layout="none">
+          <Question text={question} P={P} />
+        </Sequence>
+      ) : null}
       <PaperGrain id="top-grain" opacity={0.12} scale={1.6} />
     </AbsoluteFill>
   )
