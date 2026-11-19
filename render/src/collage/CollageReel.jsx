@@ -179,8 +179,8 @@ const Beat = ({ beat, index, P }) => {
   )
 }
 
-// The comment question, on screen for the last seconds: most viewers never see the caption.
-export const QUESTION_FRAMES = 75
+// The comment question, shown over the payoff: most viewers never see the caption.
+export const QUESTION_TAIL = 30 // extra frames after the payoff so the question can be read
 const Question = ({ text, P }) => {
   const f = useCurrentFrame()
   const s = interpolate(f, [0, 8], [1.12, 1], { extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) })
@@ -228,7 +228,7 @@ export const CollageReel = ({ palette = 'tomato', number = 1, beats = [], questi
       ))}
 
       {question && beats.length ? (
-        <Sequence from={startOf(beats, beats.length - 1) + beatFrames(beats[beats.length - 1]) - QUESTION_FRAMES} durationInFrames={QUESTION_FRAMES} layout="none">
+        <Sequence from={startOf(beats, beats.length - 1) + 8} durationInFrames={beatFrames(beats[beats.length - 1]) - 8} layout="none">
           <Question text={question} P={P} />
         </Sequence>
       ) : null}

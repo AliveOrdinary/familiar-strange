@@ -132,6 +132,11 @@ function home() {
       ${showArchive ? `<div class="stack">${archive.map((r) => `<div class="item" data-id="${r.id}"><div class="t">${esc(r.title || 'Untitled')}</div><div class="s">${r.status === 'published' ? 'Posted' : 'Dropped'}</div><div class="row"><button class="ghost" data-a="restore">Bring back</button></div></div>`).join('')}</div>` : ''}</section>` : ''}`
 }
 
+function pinQ(r) {
+  if (r.script?.comment_question) return r.script.comment_question
+  const body = String(r.caption || '').split(/\n\s*Sources:/i)[0]
+  return body.split(/\n+/).map((l) => l.trim()).filter((l) => l.endsWith('?') && l.length < 140).pop() || ''
+}
 function reelView(r) {
   const s = stage(r)
   const beats = r.script?.beats || []
@@ -197,6 +202,7 @@ function reelView(r) {
 
   if (cur === 'post') {
     body = `<a class="btn wide" href="/reels/${r.id}/download">Download video (${esc(r.duration_s)}s)</a>
+      ${pinQ(r) ? `<div class="stack"><h2 style="margin:6px 0 0">Pin this as your first comment</h2><textarea class="cap" data-pin readonly style="min-height:70px">${esc(pinQ(r))}</textarea><button class="ghost wide" data-g="copypin">Copy comment</button></div>` : ''}
       <div class="stack"><h2 style="margin:6px 0 0">Caption</h2><textarea class="cap" data-cap readonly>${esc(r.caption || '')}</textarea><button class="ghost wide" data-g="copy">Copy caption</button></div>
       ${r.status === 'published' ? '<p class="note">Marked as posted.</p>' : '<button class="wide" data-a="posted">Mark as posted</button>'}`
   }
@@ -251,6 +257,7 @@ document.addEventListener('click', (e) => {
     if (g === 'untoss') { tossFor = null; return paint(true) }
     if (g === 'keep') { const it = D.review.items[0]; b.disabled = true; D.review.items.shift(); paint(true); return act(() => post(`/library/${it.id}/approve`)) }
     if (g === 'pause' || g === 'resume') { b.disabled = true; return act(() => post(`/catalog/${g}`), g === 'pause' ? 'Daily making paused.' : 'Daily making resumed.') }
+    if (g === 'copypin') { const t = $('[data-pin]'); t.focus(); t.select(); t.setSelectionRange(0, 99999); let ok = false; try { ok = document.execCommand('copy') } catch {} t.blur(); return flash(ok ? 'Comment copied. Post it, then pin it.' : 'Select the text and copy it by hand.', !ok) }
     if (g === 'copy') { const t = $('[data-cap]'); t.focus(); t.select(); t.setSelectionRange(0, 99999); let ok = false; try { ok = document.execCommand('copy') } catch {} t.blur(); return flash(ok ? 'Caption copied.' : 'Select the caption and copy it by hand.', !ok) }
     b.disabled = true
     if (g === 'draft') return act(() => post('/reels/draft'), 'Claude is researching and writing. It will appear under Working.')

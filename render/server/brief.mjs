@@ -103,18 +103,18 @@ ${RESEARCH}
 
 Every reel is built around ONE turn: a single finding that makes the viewer see their own habit differently, stated in one sentence they could repeat at dinner. E.g. "A tip is a gift that can only flow down." "Dirt is just matter in the wrong place." Find the turn first. If the research doesn't give you a turn that would make a stranger say "huh, interesting", set fits to false and suggest a sharper angle in better_angle instead of forcing a script.
 
-The shape of a reel (six beats):
-1. Hook: a familiar puzzle from the viewer's own life, ending in the question.
-2. The obvious answer, briefly, so it can be set aside ("You'd think it's about hygiene."). Skip it only if there is no common assumption.
-3. The turn, credited aloud to whoever found it, with the year.
-4. The proof: one vivid, concrete example that makes the turn click, ideally from somewhere else in the world.
-5. Back to the viewer: apply the turn to their own life so they see their habit differently.
-6. Payoff: the turn again as a quotable line that answers the hook.
+The shape of a reel (six beats). Most viewers leave within 10 seconds, so the turn must arrive early and the best line must come right after it:
+1. Hook: a familiar puzzle from the viewer's own life, ending in the question. 20 words at most.
+2. The obvious answer in one short sentence ("You'd think it's about hygiene."), or skip it and go straight to the turn.
+3. The turn, credited aloud to whoever found it, with the year. It must start within the first 30 spoken words of the reel, so a viewer hears it by about 10 seconds.
+4. The sharpest line: the most surprising, quotable way of putting the turn ("A quick text can sound like: you weren't worth a call."). Never save it for the end.
+5. The proof: one vivid, concrete example, ideally from somewhere else in the world.
+6. Payoff: one short line that answers the hook and hands it back to the viewer.
 
 One explanation only. Never stack competing theories, earlier versions or revisions in the voiceover; they go in the caption. Every beat answers the question the previous beat raised, so the reel reads as one story.
 
 Script rules:
-- 75 to 110 spoken words in total, about 35 to 48 seconds.
+- 65 to 85 spoken words in total, about 30 to 35 seconds. Shorter is better; cut anything that isn't the turn, its sharpest line, or the one example.
 - Write for the ear: full, plain sentences a friend would say out loud. No fragments, no telegraphic lines, no jargon. If a term needs explaining, explain it in plain words or leave it out. Contractions are good; no brackets, no semicolons.
 - Name the scholar and year aloud on the turn beat.
 - Pauses: put a mark like [0.4] after a sentence to hold that many seconds before the next one. Use them after the hook question and just before the turn. Never put a mark at the very start of a beat.
@@ -237,7 +237,10 @@ export function checkScript(s, known = new Set(), { submission = true } = {}) {
   const beats = s?.beats || []
   if (beats.length !== 6) out.push(`There must be exactly 6 beats; there are ${beats.length}.`)
   const total = beats.reduce((n, b) => n + words(b.say || ''), 0)
-  if (total < 70 || total > 115) out.push(`The script has ${total} spoken words; it must be between 75 and 110.`)
+  if (total < 60 || total > 90) out.push(`The script has ${total} spoken words; it must be between 65 and 85.`)
+  const before = words(beats[0]?.say || '') + (beats[1] && !beats[1].cite ? words(beats[1].say || '') : 0)
+  if (beats.length >= 3 && before > 32) out.push(`The turn starts after ${before} words; it must start within the first 30 spoken words (shorten the hook or the obvious answer).`)
+  if (beats[0] && words(beats[0].say || '') > 22) out.push(`The hook has ${words(beats[0].say)} words; keep it to 20.`)
   const declared = new Set((s?.assets || []).map((a) => `${a.kind}:${a.name}`))
 
   function checkBeat(b, n) {
@@ -297,7 +300,8 @@ export function checkScript(s, known = new Set(), { submission = true } = {}) {
       const clipsIn = checkBeat({ ...h, layout: 'hook' }, `Alternative hook ${i + 1}`)
       if (clipsIn !== 1) out.push(`Alternative hook ${i + 1} must contain exactly one film clip, as its first piece.`)
       const t = total - words(beats[0]?.say || '') + words(h.say || '')
-      if (t < 70 || t > 115) out.push(`With alternative hook ${i + 1} the script has ${t} words; keep it between 75 and 110.`)
+      if (t < 60 || t > 90) out.push(`With alternative hook ${i + 1} the script has ${t} words; keep it between 65 and 85.`)
+      if (words(h.say || '') > 22) out.push(`Alternative hook ${i + 1} has ${words(h.say)} words; keep it to 20.`)
     })
     const q = (s?.comment_question || '').trim()
     if (!q.endsWith('?') || q.length > 120) out.push('comment_question must be one question under 120 characters, ending with "?".')

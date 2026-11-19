@@ -30,7 +30,7 @@ const PUBLIC_DIR = join(ROOT, 'public')
 const FPS = 30
 const BREATH_FRAMES = 12 // silence after each beat
 const HOOK_EXTRA_FRAMES = 12 // let the question land before the first beat
-const QUESTION_FRAMES = 75 // the comment question stays on screen this long at the end (matches the template)
+const QUESTION_TAIL = 30 // extra frames after the payoff while the comment question is on screen
 
 // The comment question: from the script, or the question line of the caption.
 function commentQuestion(reel) {
@@ -156,7 +156,7 @@ async function runJob(reelId, voice) {
       captions,
       sentenceStarts,
       speechFrames: cursor,
-      durationInFrames: cursor + BREATH_FRAMES + (b.layout === 'hook' ? HOOK_EXTRA_FRAMES : 0) + (question && i === raw.length - 1 ? QUESTION_FRAMES : 0),
+      durationInFrames: cursor + BREATH_FRAMES + (b.layout === 'hook' ? HOOK_EXTRA_FRAMES : 0) + (question && i === raw.length - 1 ? QUESTION_TAIL : 0),
     })
   }
   console.log(`TTS (${voice || 'default voice'}): ${synthesized} synthesized, ${reused} reused from cache`)
