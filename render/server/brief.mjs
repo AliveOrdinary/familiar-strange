@@ -348,8 +348,9 @@ export function toRenderScript(s, number) {
 
 // The comment question goes just before the sources line.
 export function captionWithQuestion(caption, question) {
-  const c = String(caption || '').trim()
   const q = String(question || '').trim()
+  // a revised caption may already carry the question; never add it twice
+  const c = String(caption || '').split('\n').filter((l) => !q || l.trim() !== q).join('\n').replace(/\n{3,}/g, '\n\n').trim()
   if (!q) return c
   const i = c.search(/\n\s*Sources:/i)
   return i === -1 ? `${c}\n\n${q}` : `${c.slice(0, i).trim()}\n\n${q}\n\n${c.slice(i).trim()}`
