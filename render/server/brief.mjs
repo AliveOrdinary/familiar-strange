@@ -119,9 +119,13 @@ Script rules:
 - Name the scholar and year aloud on the turn beat.
 - Pauses: put a mark like [0.4] after a sentence to hold that many seconds before the next one. Use them after the hook question and just before the turn. Never put a mark at the very start of a beat.
 
-Hooks:
-- The first sentence is a concrete contradiction, a surprising true fact, or a small sting the viewer recognises. No warm-up, no "Have you ever wondered".
-- The hook headline does the same job in four words or fewer, for viewers watching with the sound off.
+Hooks (half of all viewers decide to swipe within the first two seconds, so the first sentence carries the whole hook):
+- The first sentence alone must hold the tension: the puzzle, the contradiction or the question within its first eight words. Never open on a setup line everyone already agrees with; the tension can't wait for sentence two.
+  Bad: "Lots of romances start with a text. So why does ending one by text feel so cruel?" (the first sentence is a harmless setup)
+  Good: "Why does getting dumped by text hurt so much more?" or "You'd snatch a shoe off the table before checking if it was clean."
+- Prefer opening on "you" and a concrete action the viewer has done themselves. No warm-up, no "Have you ever wondered", no "Lots of people".
+- Each style still has to land in the first sentence: a contradiction states both sides at once, a surprising fact is the fact itself, a sting names the viewer's own small habit.
+- The hook headline says the same thing in plain words, four words or fewer, for viewers watching with the sound off. It may be the question itself ("DUMPED BY / TEXT?"). Never a pun, a riddle or wordplay the viewer has to decode.
 - Write three different hooks, one of each style: "contradiction", "surprising fact", "sting". Beat 1 is one of them (say which in hook_style); give the other two in alt_hooks. Each must end with the question, lead naturally into beat 2, and follow the hook layout rules with a film clip as its first piece. Any new pieces they use go in assets too.
 
 Picture rules (the reel is a paper collage: black-and-white cut-out photos on coloured paper, with a few short film clips in taped paper frames):
@@ -241,6 +245,8 @@ export function checkScript(s, known = new Set(), { submission = true } = {}) {
   const before = words(beats[0]?.say || '') + (beats[1] && !beats[1].cite ? words(beats[1].say || '') : 0)
   if (beats.length >= 3 && before > 32) out.push(`The turn starts after ${before} words; it must start within the first 30 spoken words (shorten the hook or the obvious answer).`)
   if (beats[0] && words(beats[0].say || '') > 22) out.push(`The hook has ${words(beats[0].say)} words; keep it to 20.`)
+  const firstSentence = (say) => (stripPauses(say || '').match(/^[^.?!]*[.?!]?/) || [''])[0]
+  if (beats[0] && words(firstSentence(beats[0].say)) > 14) out.push(`The hook's first sentence has ${words(firstSentence(beats[0].say))} words; keep it to 12 so the tension lands in the first two seconds.`)
   const declared = new Set((s?.assets || []).map((a) => `${a.kind}:${a.name}`))
 
   function checkBeat(b, n) {
@@ -302,6 +308,7 @@ export function checkScript(s, known = new Set(), { submission = true } = {}) {
       const t = total - words(beats[0]?.say || '') + words(h.say || '')
       if (t < 60 || t > 90) out.push(`With alternative hook ${i + 1} the script has ${t} words; keep it between 65 and 85.`)
       if (words(h.say || '') > 22) out.push(`Alternative hook ${i + 1} has ${words(h.say)} words; keep it to 20.`)
+      if (words(firstSentence(h.say)) > 14) out.push(`Alternative hook ${i + 1}'s first sentence has ${words(firstSentence(h.say))} words; keep it to 12.`)
     })
     const q = (s?.comment_question || '').trim()
     if (!q.endsWith('?') || q.length > 120) out.push('comment_question must be one question under 120 characters, ending with "?".')
@@ -354,7 +361,7 @@ You are the editor. A writer has drafted a reel script. Read it as a first-time 
 1. The turn: is there one clear finding the whole reel builds to, and would it make a stranger say "huh, interesting"? Is it stated plainly on the turn beat and landed again in the payoff?
 2. One story: does each beat answer the question the previous one raised? Cut anything that is a second theory, a detour, a revision or a hedge; that belongs in the caption.
 3. Plain speech: would a friend actually say each sentence out loud? Rewrite fragments, jargon and stiff academic phrasing into plain, warm sentences. Explain or cut any term a viewer wouldn't know.
-4. The hook: does the first sentence grab, and does the rest answer exactly the question it asks? Do all three hooks lead into beat 2?
+4. The hook: would a scroller who hears only the first sentence want the second? If the first sentence is a setup everyone agrees with, rewrite it so the tension or the question comes first. Is the headline plain words rather than wordplay? Does the rest answer exactly the question the hook asks? Do all three hooks lead into beat 2?
 5. Truth: never add a claim the sources don't support. If you remove a claim, drop its source too.
 
 Keep the format: same JSON shape, same layouts, picture names and "at" cues unless a change of words requires moving a cue; keep within the word range. You may rewrite any spoken text, headlines, labels and the caption.

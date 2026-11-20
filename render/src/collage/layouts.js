@@ -21,10 +21,11 @@ const place = (name, cx, cy, w, maxH, rotate, enter) => {
 }
 
 export const LAYOUTS = {
-  // headline up top, three pieces underneath
+  // headline up top, the opening clip big in the middle (it is what stops the
+  // scroll), one cut-out tucked over its corner, a third under the strip
   hook: (p) => [
-    p[0] && place(p[0], 300, 900, 620, 520, -3, 'left'),
-    p[1] && place(p[1], 800, 880, 380, 520, 5, 'right'),
+    p[0] && place(p[0], 520, 905, 900, 700, -2, 'left'),
+    p[1] && place(p[1], 880, 1080, 300, 300, 7, 'right'),
     p[2] && place(p[2], 850, 1660, 340, 340, -8, 'bottom'),
   ].filter(Boolean),
   // one piece held high, leaving room for a stack of keyword slabs under it
