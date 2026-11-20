@@ -34,7 +34,12 @@ export async function research({ system, user, tool, maxSearches = 8, check, max
     }
     const problems = check ? check(call.input) : []
     if (!problems.length) return { result: call.input, usage, model: MODEL }
-    if (++repairs > 2) throw new Error('Claude could not produce a valid result: ' + problems.slice(0, 4).join('; '))
+    if (++repairs > 2) {
+      const err = new Error('Claude could not produce a valid result: ' + problems.slice(0, 4).join('; '))
+      err.lastResult = call.input // so a caller can salvage a nearly-valid answer
+      err.usage = usage
+      throw err
+    }
     messages.push({
       role: 'user',
       content: [{ type: 'tool_result', tool_use_id: call.id, is_error: true, content: 'Not accepted. Fix every problem and submit again:\n- ' + problems.join('\n- ') }],

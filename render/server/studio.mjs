@@ -123,8 +123,18 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
       usage.input += edited.usage.input
       usage.output += edited.usage.output
     } catch (e) {
-      console.warn('editor pass skipped:', e.message)
-      editorNotes = 'Editor pass failed, so this is the first draft: ' + String(e.message).slice(0, 200)
+      // Often the edit is good and only a headline came out too long: keep the
+      // edit and put the draft's (valid) headline back in those places.
+      const salvaged = e.lastResult && salvageHeadlines(e.lastResult, draft.result, known)
+      if (salvaged) {
+        result = { ...salvaged, fits: true }
+        editorNotes = (e.lastResult.editor_notes ? e.lastResult.editor_notes + '\n' : '') + 'Kept the first draft\'s headline where the editor\'s was too long.'
+        usage.input += e.usage?.input || 0
+        usage.output += e.usage?.output || 0
+      } else {
+        console.warn('editor pass skipped:', e.message)
+        editorNotes = 'Editor pass failed, so this is the first draft: ' + String(e.message).slice(0, 200)
+      }
     }
     const model = draft.model
     let listener = null
@@ -137,6 +147,14 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
       error: null,
     })
     console.log(`script: "${topic.title}" ready for review (${usage.searches} searches)`)
+  }
+
+  function salvageHeadlines(edited, draft, known) {
+    const tooLong = (b, max) => (b.headline || []).some((l) => l.length > max)
+    const beats = (edited.beats || []).map((b, i) => (tooLong(b, b.layout === 'hook' ? 9 : 10) && draft.beats?.[i]?.headline ? { ...b, headline: draft.beats[i].headline } : b))
+    const alts = (edited.alt_hooks || []).map((h, i) => (tooLong(h, 9) && draft.alt_hooks?.[i]?.headline ? { ...h, headline: draft.alt_hooks[i].headline } : h))
+    const out = { ...edited, beats, alt_hooks: alts }
+    return checkScript({ ...out, fits: true }, known).length ? null : out
   }
 
   // After a hand edit or a hook change, hear the new voiceover again. Only
