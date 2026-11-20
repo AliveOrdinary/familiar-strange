@@ -15,6 +15,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { research, claudeConfigured } from './claude.mjs'
 import { vertexConfigured } from './vertex.mjs'
+import { coldListen } from './listener.mjs'
 import { BANK_SYSTEM, BANK_TOOL, SCRIPT_SYSTEM, SCRIPT_TOOL, EDITOR_SYSTEM, EDITOR_TOOL, checkScript, toRenderScript, captionWithQuestion } from './brief.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -126,14 +127,30 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
       editorNotes = 'Editor pass failed, so this is the first draft: ' + String(e.message).slice(0, 200)
     }
     const model = draft.model
+    let listener = null
+    try { listener = await coldListen(result.beats, result.turn) } catch (e) { console.warn('cold listener skipped:', e.message) }
     await setReel(reelId, {
       status: 'script_review',
-      script: { ...toRenderScript(result), editor_notes: editorNotes },
+      script: { ...toRenderScript(result), editor_notes: editorNotes, listener },
       caption: captionWithQuestion(result.caption, result.comment_question),
       factcheck: { model, searches: usage.searches, tokens_in: usage.input, tokens_out: usage.output },
       error: null,
     })
     console.log(`script: "${topic.title}" ready for review (${usage.searches} searches)`)
+  }
+
+  // After a hand edit or a hook change, hear the new voiceover again. Only
+  // saved if the script hasn't changed again in the meantime.
+  function relisten(id) {
+    ;(async () => {
+      const { data: before } = await supabase.from('reels').select('script').eq('id', id).maybeSingle()
+      if (!before?.script) return
+      const listener = await coldListen(before.script.beats, before.script.turn)
+      if (!listener) return
+      const { data: now } = await supabase.from('reels').select('script').eq('id', id).maybeSingle()
+      const same = JSON.stringify(now?.script?.beats) === JSON.stringify(before.script.beats)
+      if (same) await setReel(id, { script: { ...now.script, listener } })
+    })().catch((e) => console.warn('cold listener skipped:', e.message))
   }
 
   async function nextTopic() {
@@ -277,7 +294,8 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
       const problems = checkScript(asSubmitted, known, { submission: false }).filter((p) => !/film clip/.test(p))
       if (problems.length) return res.status(422).json({ error: problems.join(' ') })
       if (Array.isArray(script.hooks) && script.hooks[script.hook || 0]) script.hooks = script.hooks.map((h, i) => (i === (script.hook || 0) ? { ...h, say: script.beats[0].say } : h))
-      await setReel(id, { script, revision: (reel.revision || 1) + 1 })
+      await setReel(id, { script: { ...script, listener: null }, revision: (reel.revision || 1) + 1 })
+      relisten(id)
       return res.json({ ok: true })
     }
 
@@ -288,7 +306,8 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
       if (reel.status !== 'script_review') return res.status(409).json({ error: 'The hook can only be changed while the script is in review' })
       const { style, ...beat } = hooks[i]
       const beats = [beat, ...reel.script.beats.slice(1)]
-      await setReel(id, { script: { ...reel.script, beats, hook: i }, revision: (reel.revision || 1) + 1 })
+      await setReel(id, { script: { ...reel.script, beats, hook: i, listener: null }, revision: (reel.revision || 1) + 1 })
+      relisten(id)
       return res.json({ ok: true })
     }
 

@@ -70,6 +70,13 @@ const post = async (url, body) => {
 let flashTimer
 const flash = (msg, bad) => { const f = $('#flash'); clearTimeout(flashTimer); f.textContent = msg; f.className = bad ? 'bad' : ''; f.style.display = msg ? 'block' : 'none'; if (msg) flashTimer = setTimeout(() => (f.style.display = 'none'), bad ? 9000 : 4500) }
 const wordCount = (s) => String(s || '').replace(/\[[\d.]+\]/g, '').split(/\s+/).filter(Boolean).length
+// What a first-time listener came away with (a flag only; you decide).
+const listenBox = (sc, review) => {
+  const l = sc.listener
+  if (l === undefined) return ''
+  if (!l) return review ? '<p class="note">A first-time listener is hearing the new version…</p>' : ''
+  return `<div class="note ${l.matches ? '' : 'err'}" style="margin:10px 0"><b>${l.matches ? 'A first-time listener got it' : 'A first-time listener missed the turn'}</b><br>They heard: “${esc(l.point)}”${l.gap ? `<br>${esc(l.gap)}` : ''}${l.lost ? `<br>Got lost at: ${esc(l.lost)}` : ''}</div>`
+}
 const ago = (t) => { const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 90 ? `${s}s` : `${Math.round(s / 60)} min` }
 
 let D = null, lastKey = '', tab = {}, confirmDrop = null, openDesc = {}, showArchive = false
@@ -159,7 +166,7 @@ function reelView(r) {
       const words = beats.reduce((n, b) => n + wordCount(b.say), 0)
       const names = (b) => (b.pieces || []).map((p) => (typeof p === 'string' ? p : p.clip ? `film: ${p.clip}` : p.name)).join(', ')
       const src = Array.isArray(r.script.sources) ? r.script.sources : []
-      body = `${r.error && review ? `<p class="note err">${esc(r.error)}</p>` : ''}${r.script.turn ? `<div class="q picked"><div class="s">The turn: what this reel builds to</div><div class="t" style="font-size:19px">${esc(r.script.turn)}</div></div>` : ''}${r.script.editor_notes ? `<details><summary>What the editor changed</summary><p>${esc(r.script.editor_notes)}</p></details>` : ''}<p class="note">${words} spoken words · ${esc(r.script.palette)} palette${review ? ' · numbers in brackets are pauses in seconds' : ''}</p>
+      body = `${r.error && review ? `<p class="note err">${esc(r.error)}</p>` : ''}${r.script.turn ? `<div class="q picked"><div class="s">The turn: what this reel builds to</div><div class="t" style="font-size:19px">${esc(r.script.turn)}</div>${r.script.chain ? `<div class="a">${esc(r.script.chain).replace(/\b(BUT|SO)\b/g, '<b>$1</b>')}</div>` : ''}</div>` : ''}${listenBox(r.script, review)}${r.script.editor_notes ? `<details><summary>What the editor changed</summary><p>${esc(r.script.editor_notes)}</p></details>` : ''}<p class="note">${words} spoken words · ${esc(r.script.palette)} palette${review ? ' · numbers in brackets are pauses in seconds' : ''}</p>
         ${review && (r.script.hooks || []).length > 1 ? `<div class="stack"><h2 style="margin:6px 0 0">Pick a hook</h2>${r.script.hooks.map((h, i) => `<div class="q ${i === (r.script.hook || 0) ? 'picked' : ''}"><div class="s">${esc(h.style || 'hook')}${i === (r.script.hook || 0) ? ' · in use' : ''}</div><div class="t">${esc((h.headline || []).join(' '))}</div><div class="a">${esc(h.say)}</div>${i === (r.script.hook || 0) ? '' : `<div class="act"><button class="ghost" data-hook="${i}">Use this hook</button></div>`}</div>`).join('')}<h2 style="margin:10px 0 0">The script</h2></div>` : ''}
         ${beats.map((b, i) => `<div class="beat"><div class="n">${i + 1}${b.headline ? ' · ' + esc(b.headline.join(' / ')) : ''}</div>
           ${review ? `<textarea rows="3" data-say="${i}">${esc(b.say)}</textarea>` : `<div class="say">${esc(b.say)}</div>`}

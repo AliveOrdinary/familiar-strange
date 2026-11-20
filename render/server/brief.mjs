@@ -103,19 +103,25 @@ ${RESEARCH}
 
 Every reel is built around ONE turn: a single finding that makes the viewer see their own habit differently, stated in one sentence they could repeat at dinner. E.g. "A tip is a gift that can only flow down." "Dirt is just matter in the wrong place." Find the turn first. If the research doesn't give you a turn that would make a stranger say "huh, interesting", set fits to false and suggest a sharper angle in better_angle instead of forcing a script.
 
+The turn is in everyday words a 12-year-old would understand. No technical term, not even one you then explain ("initiation", "reciprocity", "liminality", "habitus"): say what the term means instead ("a secret that sorts kids from grown-ups"). If the idea can't be said without its term, look for a plainer turn.
+
+Plan before you write. In "chain", write the whole reel as one line: "[what the viewer does or believes], BUT [what's really going on], SO [what that means for them]". E.g. "We lie to kids about Santa, BUT the secret splits the world into kids who believe and people who know, SO finding out is how you get let in." The script is that line, told out loud. If you can't write the chain, you don't have the reel yet.
+
+Keep one thread. Choose the two or three plain words that carry the turn (secret, know, let in) and use them in every beat from the turn to the payoff. Never switch to a new image or frame halfway (from "a lie" to "an initiation" to "a promotion" to "passing it on"); each switch makes the viewer start over.
+
 The shape of a reel (six beats). Most viewers leave within 10 seconds, so the turn must arrive early and the best line must come right after it:
 1. Hook: a familiar puzzle from the viewer's own life, ending in the question. 20 words at most.
-2. The obvious answer in one short sentence ("You'd think it's about hygiene."), or skip it and go straight to the turn.
+2. The obvious answer: what the viewer actually believes right now, in one short sentence ("You'd think it's about germs."). The turn then knocks it down. Make it a belief people really hold, not a straw man.
 3. The turn, credited aloud to whoever found it, with the year. It must start within the first 30 spoken words of the reel, so a viewer hears it by about 10 seconds.
 4. The sharpest line: the most surprising, quotable way of putting the turn ("A quick text can sound like: you weren't worth a call."). Never save it for the end.
-5. The proof: one vivid, concrete example, ideally from somewhere else in the world.
+5. The proof: one vivid, concrete example that shows the turn itself happening, ideally from somewhere else in the world. Not a related fact that sits next to the turn; the viewer should see the turn in action.
 6. Payoff: one short line that answers the hook and hands it back to the viewer.
 
-One explanation only. Never stack competing theories, earlier versions or revisions in the voiceover; they go in the caption. Every beat answers the question the previous beat raised, so the reel reads as one story.
+One explanation only. Never stack competing theories, earlier versions or revisions in the voiceover; they go in the caption. Every beat follows from the one before with "but" or "so", never "and then": read the beats in order with "but" or "so" between them, and if a beat only fits after "and also", cut it or rewrite it.
 
 Script rules:
 - 65 to 85 spoken words in total, about 30 to 35 seconds. Shorter is better; cut anything that isn't the turn, its sharpest line, or the one example.
-- Write for the ear: full, plain sentences a friend would say out loud. No fragments, no telegraphic lines, no jargon. If a term needs explaining, explain it in plain words or leave it out. Contractions are good; no brackets, no semicolons.
+- Write for the ear. The listener hears each sentence once and can't go back. One idea per sentence, about 8 to 12 words, subject-verb-object, active voice. Full sentences a friend would say out loud: no fragments, no telegraphic lines, no jargon. Everyday words only; if a word needs explaining, use the explanation instead of the word. Contractions are good; no brackets, no semicolons.
 - Name the scholar and year aloud on the turn beat.
 - Pauses: put a mark like [0.4] after a sentence to hold that many seconds before the next one. Use them after the hook question and just before the turn. Never put a mark at the very start of a beat.
 
@@ -157,7 +163,7 @@ export const SCRIPT_TOOL = {
   description: 'Submit the finished reel.',
   input_schema: {
     type: 'object',
-    required: ['fits', 'turn', 'palette', 'beats', 'hook_style', 'alt_hooks', 'assets', 'sources', 'caption', 'comment_question'],
+    required: ['fits', 'chain', 'turn', 'palette', 'beats', 'hook_style', 'alt_hooks', 'assets', 'sources', 'caption', 'comment_question'],
     properties: {
       palette: { type: 'string', enum: Object.keys(THEMES) },
       beats: {
@@ -203,7 +209,8 @@ export const SCRIPT_TOOL = {
       caption: { type: 'string' },
       fits: { type: 'boolean', description: 'False if this question has no turn that works in 40 seconds.' },
       better_angle: { type: 'string', description: 'When fits is false: a sharper question that would work.' },
-      turn: { type: 'string', description: 'The one finding the reel builds to, in one sentence a viewer could repeat.' },
+      turn: { type: 'string', description: 'The one finding the reel builds to, in one plain sentence a viewer could repeat. No technical terms.' },
+      chain: { type: 'string', description: 'The whole reel in one line: "..., BUT ..., SO ...".' },
       comment_question: { type: 'string', description: 'One short question that invites viewers to say how they do it, under 100 characters.' },
       hook_style: { type: 'string', enum: HOOK_STYLES },
       alt_hooks: {
@@ -247,6 +254,14 @@ export function checkScript(s, known = new Set(), { submission = true } = {}) {
   if (beats[0] && words(beats[0].say || '') > 22) out.push(`The hook has ${words(beats[0].say)} words; keep it to 20.`)
   const firstSentence = (say) => (stripPauses(say || '').match(/^[^.?!]*[.?!]?/) || [''])[0]
   if (beats[0] && words(firstSentence(beats[0].say)) > 14) out.push(`The hook's first sentence has ${words(firstSentence(beats[0].say))} words; keep it to 12 so the tension lands in the first two seconds.`)
+  if (submission && !/\bBUT\b/i.test(s?.chain || '') ) out.push('Write the chain as one line: "..., BUT ..., SO ...".')
+  else if (submission && !/\b(SO|THEREFORE)\b/i.test(s?.chain || '')) out.push('The chain needs its SO part: "..., BUT ..., SO ...".')
+  if (submission) beats.forEach((b, i) => {
+    for (const sentence of stripPauses(b.say || '').split(/(?<=[.?!])\s+/)) {
+      const n = words(sentence)
+      if (n > 18) out.push(`Beat ${i + 1} has a ${n}-word sentence ("${sentence.slice(0, 40)}…"); split it, one idea per sentence, about 8 to 12 words.`)
+    }
+  })
   const declared = new Set((s?.assets || []).map((a) => `${a.kind}:${a.name}`))
 
   function checkBeat(b, n) {
@@ -340,6 +355,7 @@ export function toRenderScript(s, number) {
     hooks,
     hook: 0,
     turn: s.turn,
+    chain: s.chain,
     comment_question: s.comment_question,
     assets: s.assets || [],
     sources: s.sources || [],
@@ -361,9 +377,12 @@ export const EDITOR_SYSTEM = `${SHOW}
 You are the editor. A writer has drafted a reel script. Read it as a first-time viewer hearing it at speaking pace, then make it better. Check:
 1. The turn: is there one clear finding the whole reel builds to, and would it make a stranger say "huh, interesting"? Is it stated plainly on the turn beat and landed again in the payoff?
 2. One story: does each beat answer the question the previous one raised? Cut anything that is a second theory, a detour, a revision or a hedge; that belongs in the caption.
-3. Plain speech: would a friend actually say each sentence out loud? Rewrite fragments, jargon and stiff academic phrasing into plain, warm sentences. Explain or cut any term a viewer wouldn't know.
-4. The hook: would a scroller who hears only the first sentence want the second? If the first sentence is a setup everyone agrees with, rewrite it so the tension or the question comes first. Is the headline plain words rather than wordplay? Does the rest answer exactly the question the hook asks? Do all three hooks lead into beat 2?
-5. Truth: never add a claim the sources don't support. If you remove a claim, drop its source too.
+3. Plain speech: would a friend actually say each sentence out loud? Rewrite fragments, jargon and stiff academic phrasing into plain, warm sentences. Replace any term a viewer wouldn't know with what it means.
+4. The chain: does the script follow its "chain" line? Read the beats with "but" or "so" between them; any beat that only fits after "and also" is a detour, so cut it or rewrite it.
+5. One thread: from the turn to the payoff, does every beat use the same few plain words for the idea? Replace any new frame, image or term that appears halfway.
+6. The ear: one idea per sentence, about 8 to 12 words. Split long sentences. Replace any technical term with what it means, even if the draft explains it.
+7. The hook: would a scroller who hears only the first sentence want the second? If the first sentence is a setup everyone agrees with, rewrite it so the tension or the question comes first. Is the headline plain words rather than wordplay? Does the rest answer exactly the question the hook asks? Do all three hooks lead into beat 2?
+8. Truth: never add a claim the sources don't support. If you remove a claim, drop its source too.
 
 Keep the format: same JSON shape, same layouts, picture names and "at" cues unless a change of words requires moving a cue; keep within the word range. You may rewrite any spoken text, headlines, labels and the caption.
 
