@@ -190,3 +190,7 @@ export async function probeGemini() {
   }
   return out
 }
+
+// For other Google APIs on the same account (speech, text-to-speech).
+export const googleCall = (url, payload) => call(url, payload)
+export const googleProject = () => project()

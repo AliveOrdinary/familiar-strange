@@ -10,7 +10,7 @@
 // POST /audition { text, voice? } → mp3 of that text, to compare voices by ear
 import 'dotenv/config'
 import express from 'express'
-import { mkdirSync, readFileSync, existsSync, rmSync, readdirSync, statSync } from 'node:fs'
+import { mkdirSync, readFileSync, existsSync, rmSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
@@ -23,6 +23,8 @@ import { parseSay, stripPauses, captionPhrases } from '../shared/captions.js'
 import { mountLibrary } from './library.mjs'
 import { mountStudio } from './studio.mjs'
 import { mountCatalog } from './catalog.mjs'
+import { speak, align, oneTakeKey, readWav, beatsFromTake, GEMINI_VOICES } from './voice.mjs'
+import { vertexConfigured } from './vertex.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(here, '..')
@@ -108,15 +110,8 @@ async function callback(body) {
   }
 }
 
-async function runJob(reelId, voice) {
-  const { data: reel, error } = await supabase.from('reels').select('*').eq('id', reelId).single()
-  if (error || !reel) throw new Error('Reel not found: ' + (error?.message || reelId))
-  await update(reelId, { status: 'rendering', error: null })
-
-  const raw = await scriptBeats(reel.script)
-  const question = commentQuestion(reel)
-
-  // 1. Voice. Every sentence is synthesized on its own and the pauses between
+async function perSentenceBeats(raw, voice, question) {
+  // Every sentence is synthesized on its own and the pauses between
   //    them are authored in the script ("Why? [0.6]"), so pacing is ours, not
   //    the voice model's. Knowing where each sentence starts also gives exact
   //    caption timing.
@@ -161,6 +156,54 @@ async function runJob(reelId, voice) {
   }
   console.log(`TTS (${voice || 'default voice'}): ${synthesized} synthesized, ${reused} reused from cache`)
 
+  return { beats, voiceover: null }
+}
+
+// The whole voiceover in one take, then cut back into beats at the words
+// where each beat starts.
+const LEAD_FRAMES = 6 // tiny lead-in so the first word isn't clipped
+async function oneTakeBeats(raw, voiceName, question) {
+  const ttsDir = join(PUBLIC_DIR, 'tts')
+  mkdirSync(ttsDir, { recursive: true })
+  const byBeat = raw.map((b) => parseSay(b.say))
+  const flat = byBeat.flatMap((ss, bi) => ss.map((x) => ({ ...x, bi })))
+  const transcript = byBeat.map((ss) => ss.map((x) => x.text).join(' ')).join('\n\n')
+  const key = oneTakeKey(transcript, voiceName)
+  const file = join(ttsDir, `${key}.wav`)
+  const timing = join(ttsDir, `${key}.json`)
+  if (!existsSync(file)) writeFileSync(file, await speak(transcript, voiceName))
+  const buf = readFileSync(file)
+  let al
+  if (existsSync(timing)) al = JSON.parse(readFileSync(timing, 'utf8'))
+  else { al = await align(buf, flat); writeFileSync(timing, JSON.stringify(al)) }
+  const { pcm, rate } = readWav(buf)
+  const seconds = pcm.length / 2 / rate
+  const beats = beatsFromTake(raw, flat, al, seconds, { fps: FPS, lead: LEAD_FRAMES, breath: BREATH_FRAMES, tail: question ? QUESTION_TAIL : 0 })
+  console.log(`TTS: one take with ${voiceName}, ${seconds.toFixed(1)}s, timed by ${al.method}`)
+  return { beats, voiceover: { src: `${SELF}/tts/${key}.wav`, from: LEAD_FRAMES } }
+}
+
+async function getVoiceSetting() {
+  const { data } = await supabase.from('settings').select('value').eq('key', 'voice').maybeSingle()
+  return data?.value || { provider: 'kokoro' }
+}
+
+async function runJob(reelId, voice) {
+  const { data: reel, error } = await supabase.from('reels').select('*').eq('id', reelId).single()
+  if (error || !reel) throw new Error('Reel not found: ' + (error?.message || reelId))
+  await update(reelId, { status: 'rendering', error: null })
+
+  const raw = await scriptBeats(reel.script)
+  const question = commentQuestion(reel)
+
+  // 1. Voice: one directed take (Gemini) when chosen in the Studio, otherwise
+  //    Kokoro sentence by sentence.
+  const voiceSetting = await getVoiceSetting()
+  const useGemini = voiceSetting.provider === 'gemini' && vertexConfigured() && !voice
+  const { beats, voiceover } = useGemini
+    ? await oneTakeBeats(raw, voiceSetting.voice, question)
+    : await perSentenceBeats(raw, voice, question)
+
   // 2. Render
   const { count } = await supabase
     .from('reels')
@@ -172,6 +215,7 @@ async function runJob(reelId, voice) {
     sources: reel.script.sources || '',
     beats,
     question,
+    voiceover,
   }
   const comp = await selectComposition({ serveUrl, id: 'CollageReel', inputProps })
   const outPath = join(PUBLIC_DIR, 'out', `${reelId}.mp4`)
@@ -287,6 +331,53 @@ app.post('/audition', async (req, res) => {
     res.status(502).json({ error: e.message })
   } finally {
     rmSync(file, { force: true })
+  }
+})
+
+// --- Narrator voice: audition in the Studio (#/voices), pick one for renders ---
+async function sampleScript() {
+  const { data } = await supabase.from('reels').select('review_notes, script, status, created_at').not('script', 'is', null).neq('status', 'rejected').order('created_at', { ascending: false }).limit(1)
+  const r = data?.[0]
+  const beats = r?.script?.beats || []
+  if (!beats.length) return { title: 'Sample', text: 'You tip the waiter. You don’t tip the nurse. Why?' }
+  return { title: r.review_notes || 'Latest script', text: beats.map((b) => parseSay(b.say).map((x) => x.text).join(' ')).join('\n\n') }
+}
+
+app.get('/voice', async (_req, res) => {
+  try {
+    res.json({ setting: await getVoiceSetting(), gemini: GEMINI_VOICES, kokoro: process.env.KOKORO_VOICE || 'am_michael', google: vertexConfigured(), sample: await sampleScript() })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+app.post('/voice', async (req, res) => {
+  const provider = req.body?.provider === 'gemini' ? 'gemini' : 'kokoro'
+  const voice = String(req.body?.voice || '')
+  if (provider === 'gemini' && !GEMINI_VOICES.some(([n]) => n === voice)) return res.status(400).json({ error: 'Unknown voice' })
+  const value = provider === 'gemini' ? { provider, voice } : { provider }
+  const { error } = await supabase.from('settings').upsert({ key: 'voice', value, updated_at: new Date().toISOString() })
+  if (error) return res.status(500).json({ error: error.message })
+  res.json({ ok: true, setting: value })
+})
+
+app.post('/voice/sample', async (req, res) => {
+  try {
+    const { text } = await sampleScript()
+    const dir = join(PUBLIC_DIR, 'tts')
+    mkdirSync(dir, { recursive: true })
+    if (req.body?.provider === 'gemini') {
+      const voice = String(req.body?.voice || '')
+      if (!GEMINI_VOICES.some(([n]) => n === voice)) return res.status(400).json({ error: 'Unknown voice' })
+      const key = oneTakeKey(text, voice)
+      const file = join(dir, `${key}.wav`)
+      if (!existsSync(file)) writeFileSync(file, await speak(text, voice))
+      return res.json({ url: `/tts/${key}.wav` })
+    }
+    const key = 'kokoro-' + ttsCacheKey(text.replace(/\n+/g, ' '))
+    const file = join(dir, `${key}.mp3`)
+    if (!existsSync(file)) await synthesize(text.replace(/\n+/g, ' '), file)
+    res.json({ url: `/tts/${key}.mp3` })
+  } catch (e) {
+    res.status(502).json({ error: String(e.message).slice(0, 600) })
   }
 })
 

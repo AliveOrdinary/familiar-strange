@@ -122,6 +122,8 @@ function home() {
       <div class="s">Making ${RV.stats.daily.clip} clips and ${RV.stats.daily.piece} cut-outs a day until ${esc(RV.stats.until)}${RV.state.paused ? ' · <b>paused</b>' : RV.stats.backlog >= 30 ? ' · waiting for you to review' : RV.state.busy ? ' · <span class="dot"></span>making one now' : ''}</div>
       ${RV.state.lastError ? `<div class="s err">${esc(RV.state.lastError)}</div>` : ''}
       <div class="row"><button class="quiet" data-g="${RV.state.paused ? 'resume' : 'pause'}">${RV.state.paused ? 'Resume' : 'Pause'} daily making</button><a class="quiet" href="/library" style="padding:10px 8px;font-size:15px;color:var(--muted)">Browse everything</a></div></div></section>` : ''
+  const vs = D.voice
+  const voiceLine = `<section><h2>Voice</h2><a class="item" href="#/voices"><div class="t">${vs?.provider === 'gemini' ? esc(vs.voice) + ' (Google, one take)' : 'Kokoro (sentence by sentence)'}</div><div class="s">Listen to the voices and pick one</div></a></section>`
   return `
     <section><h2>Needs you</h2><div class="stack">${revItem}${need.map(item).join('') || (revItem ? '' : '<p class="note">Nothing is waiting on you.</p>')}</div></section>
     ${busy.length ? `<section><h2>Working</h2><div class="stack">${busy.map(item).join('')}</div></section>` : ''}
@@ -132,7 +134,7 @@ function home() {
       ${[...picked, ...rest].map(qrow).join('')}
       <button class="ghost wide" data-g="refill" ${refilling || !D.configured.claude ? 'disabled' : ''}>${refilling ? `Researching new questions… ${ago(D.jobs.refill.since)}` : 'Find new questions'}</button>
       ${D.jobs.refill?.state === 'error' ? `<p class="note err">Finding questions failed: ${esc(D.jobs.refill.message)}</p>` : ''}
-      ${D.configured.claude ? '' : '<p class="note err">The Claude API key (ANTHROPIC_API_KEY) is not set on the stack.</p>'}
+      ${D.configured.claude ? '' : '<p class="note err">The Claude API key (ANTHROPIC_API_KEY) is not set on the stack.</p>'}${voiceLine}
     </div></section>
     ${libLine}
     ${archive.length ? `<section><button class="quiet" data-g="archive">${showArchive ? 'Hide' : 'Show'} posted and dropped (${archive.length})</button>
@@ -233,16 +235,59 @@ function reviewView() {
     ${tossFor === it.id ? `<div class="stack"><p class="note">What's wrong with it? This shapes the next ones.</p><div class="row fill">${reasons}</div><button class="quiet" data-g="untoss">Cancel</button></div>`
       : `<div class="row fill sticky"><button class="ghost" data-g="toss">Toss</button><button data-g="keep">Keep</button></div>`}`
 }
+// --- Voices: hear the latest script in each voice, pick one for renders ---
+let V = null // { setting, gemini, kokoro, google, sample, samples: { id: { state, url, msg } } }
+const vid = (p, v) => p === 'gemini' ? v : 'kokoro'
+function voicesView() {
+  if (!V) return '<a class="back" href="#/">‹ All reels</a><p class="note">Loading voices…</p>'
+  const cur = V.setting || { provider: 'kokoro' }
+  const row = (provider, name, desc) => {
+    const id = vid(provider, name), s = V.samples[id] || {}
+    const on = cur.provider === provider && (provider === 'kokoro' || cur.voice === name)
+    return `<div class="q ${on ? 'picked' : ''}"><div class="t">${esc(name)} <span class="s">· ${esc(desc)}</span></div>
+      ${s.state === 'ready' ? `<audio controls preload="auto" src="${esc(s.url)}" style="width:100%;margin:8px 0"></audio>` : ''}
+      ${s.state === 'error' ? `<p class="note err">${esc(s.msg)}</p>` : ''}
+      <div class="act">${s.state === 'ready' ? '' : `<button data-vs="${provider}" data-vn="${esc(name)}" ${s.state === 'making' ? 'disabled' : ''}>${s.state === 'making' ? 'Recording… about 20s' : 'Listen'}</button>`}
+      ${on ? '<button class="ghost" disabled>In use ✓</button>' : `<button class="ghost" data-vu="${provider}" data-vn="${esc(name)}">Use this voice</button>`}</div></div>`
+  }
+  return `<div><a class="back" href="#/">‹ All reels</a><h1 class="title">Narrator voice</h1></div>
+    <p class="note">Each voice reads the latest script, “${esc(V.sample?.title || '')}”. The Google voices read it in one take with the same direction: a curious storyteller telling a friend, slowing down on the turn. The voice you pick is used for every render from now on.</p>
+    ${V.google ? '' : '<p class="note err">Google credentials are not set on the stack, so only Kokoro is available.</p>'}
+    <section><h2>Now</h2><div class="stack">${row('kokoro', V.kokoro, 'Kokoro, our current voice (reels read it sentence by sentence)')}</div></section>
+    ${V.google ? `<section><h2>Google, one take</h2><div class="stack">${V.gemini.map(([n, d]) => row('gemini', n, d)).join('')}</div></section>` : ''}`
+}
+async function loadVoices() {
+  try { const v = await fetch('/voice').then((r) => r.json()); if (v.error) throw new Error(v.error); V = { ...v, samples: V?.samples || {} } }
+  catch (e) { V = null; flash('Voices could not load: ' + e.message, true) }
+  paint(true)
+}
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-vs], button[data-vu]'); if (!b) return
+  const provider = b.dataset.vs || b.dataset.vu, name = b.dataset.vn
+  if (b.dataset.vs) {
+    const id = vid(provider, name)
+    V.samples[id] = { state: 'making' }; paint(true)
+    try { const j = await post('/voice/sample', { provider, voice: name }); V.samples[id] = { state: 'ready', url: j.url } }
+    catch (err) { V.samples[id] = { state: 'error', msg: err.message } }
+    return paint(true)
+  }
+  b.disabled = true
+  try { const j = await post('/voice', { provider, voice: name }); V.setting = j.setting; if (D) D.voice = j.setting; flash(`${provider === 'gemini' ? name : 'Kokoro'} will read every reel from now on.`) }
+  catch (err) { flash(err.message, true) }
+  paint(true)
+})
+
 function route() { const m = location.hash.match(/^#\/reel\/([0-9a-f-]+)/); return m ? m[1] : null }
 function paint(force) {
   if (!D) return
   const id = route()
   const typing = document.activeElement && document.activeElement.matches('textarea, input')
   const key = JSON.stringify([D, id, location.hash, tab, confirmDrop, openDesc, showArchive, tossFor])
+  if (location.hash === '#/voices' && !force) return // don't interrupt playback with background refreshes
   if (!force && (key === lastKey || typing)) return
   lastKey = key
   const r = id && D.reels.find((x) => x.id === id)
-  $('#app').innerHTML = location.hash === '#/review' ? reviewView() : id ? (r ? reelView(r) : '<a class="back" href="#/">‹ All reels</a><p class="note">That reel is no longer here.</p>') : home()
+  $('#app').innerHTML = location.hash === '#/voices' ? voicesView() : location.hash === '#/review' ? reviewView() : id ? (r ? reelView(r) : '<a class="back" href="#/">‹ All reels</a><p class="note">That reel is no longer here.</p>') : home()
 }
 async function load(force) {
   try { const [d, rv] = await Promise.all([fetch('/studio.json').then((r) => r.json()), fetch('/review.json').then((r) => r.json()).catch(() => null)]); D = d; D.review = rv; paint(force) }
@@ -291,6 +336,7 @@ document.addEventListener('click', (e) => {
   }
 })
 document.addEventListener('submit', (e) => { if (e.target.id !== 'add') return; e.preventDefault(); const body = Object.fromEntries(new FormData(e.target)); act(() => post('/bank', body), 'Added and picked.') })
-window.addEventListener('hashchange', () => { confirmDrop = null; window.scrollTo(0, 0); paint(true) })
+window.addEventListener('hashchange', () => { confirmDrop = null; window.scrollTo(0, 0); if (location.hash === '#/voices') loadVoices(); paint(true) })
+if (location.hash === '#/voices') loadVoices()
 load(true); setInterval(load, 4000)
 </script></body></html>

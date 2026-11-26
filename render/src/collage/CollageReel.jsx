@@ -195,7 +195,7 @@ const Question = ({ text, P }) => {
   )
 }
 
-export const CollageReel = ({ palette = 'tomato', number = 1, beats = [], question = null }) => {
+export const CollageReel = ({ palette = 'tomato', number = 1, beats = [], question = null, voiceover = null }) => {
   const P = PALETTES[palette] || PALETTES.tomato
   return (
     <AbsoluteFill style={{ background: P.ground }}>
@@ -226,6 +226,13 @@ export const CollageReel = ({ palette = 'tomato', number = 1, beats = [], questi
           ))}
         </Sequence>
       ))}
+
+      {/* one-take narration: a single track under the whole reel */}
+      {voiceover?.src ? (
+        <Sequence from={voiceover.from || 0} layout="none">
+          <Audio src={voiceover.src} />
+        </Sequence>
+      ) : null}
 
       {question && beats.length ? (
         <Sequence from={startOf(beats, beats.length - 1) + 8} durationInFrames={beatFrames(beats[beats.length - 1]) - 8} layout="none">

@@ -236,12 +236,14 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
 
   // ---- routes -------------------------------------------------------------
   app.get('/studio.json', async (_req, res) => {
-    const [{ data: bank }, { data: reels }, { lib }] = await Promise.all([
+    const [{ data: bank }, { data: reels }, { lib }, { data: voiceRow }] = await Promise.all([
       supabase.from('topics').select('*').in('status', ['proposed', 'approved']).order('score', { ascending: false, nullsFirst: false }).limit(100),
       supabase.from('reels').select('id,topic_id,status,script,caption,factcheck,review_notes,video_url,duration_s,error,revision,updated_at').order('updated_at', { ascending: false }).limit(40),
       knownAssets(),
+      supabase.from('settings').select('value').eq('key', 'voice').maybeSingle(),
     ])
     res.json({
+      voice: voiceRow?.value || { provider: 'kokoro' },
       configured: { claude: claudeConfigured(), google: vertexConfigured() },
       jobs,
       bank: bank || [],
