@@ -30,8 +30,11 @@ const sentenceStarts = (beat) => {
   return out
 }
 // "at: 2" means "arrive as sentence 2 starts" (a hair early, so it lands on the word)
-// Paper foley: every move gets its sound (synthesized, see scripts/make_sfx.py).
-const Sfx = ({ name, at = 0, volume = 0.3 }) => (
+// Paper foley (synthesized, see scripts/make_sfx.py). Switched off: the
+// synthetic sounds didn't suit the page. Kept so real recorded foley can be
+// dropped into public/sfx later and turned back on here.
+const SOUNDS = false
+const Sfx = ({ name, at = 0, volume = 0.3 }) => !SOUNDS ? null : (
   <Sequence from={Math.max(0, Math.round(at))} layout="none">
     <Audio src={staticFile(`sfx/${name}.wav`)} volume={volume} />
   </Sequence>
