@@ -119,7 +119,11 @@ const Beat = ({ beat, index, total, accent, bookend, compact }) => {
   const keys = keyWords(beat)
   const opening = index === 0
   const turn = index === 2
-  const specs = (beat.pieces || []).map((p) => (typeof p === 'string' ? { name: p } : p))
+  const all = (beat.pieces || []).map((p) => (typeof p === 'string' ? { name: p } : p))
+  // one picture per sentence cue; when two share a cue, the film clip wins
+  const byCue = new Map()
+  for (const p of all) { const k = p.at ?? 0; if (!byCue.has(k) || (p.clip && !byCue.get(k).clip)) byCue.set(k, p) }
+  const specs = [...byCue.values()].sort((a, b) => (a.at ?? 0) - (b.at ?? 0))
   const lead = specs.length ? specs : bookend ? [bookend] : []
   // when each picture shows: from its cued sentence until the next picture's
   const shows = lead.map((p, i) => ({ spec: p, from: opening && !p.at ? 0 : sents[p.at ?? 0]?.from ?? 0 }))

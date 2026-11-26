@@ -37,6 +37,27 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
     if (error) console.error('reels update failed:', error.message)
   }
 
+  // The pieces and clips that ship with the code were made for the tipping
+  // pilot; say exactly what they show so they aren't picked for something else.
+  const SHIPPED_ABOUT = {
+    'piece:hand': 'a hand dropping a coin onto a silver tip tray (tipping only)',
+    'piece:bell': 'a silver hotel service bell',
+    'piece:chair': 'a single chair',
+    'piece:chocolates': 'an open box of chocolates',
+    'piece:cup': 'a coffee cup on a saucer, seen from above',
+    'piece:gift': 'a wrapped gift box',
+    'piece:handshake': 'two hands shaking',
+    'piece:mobile': 'a mobile phone',
+    'piece:receipt': 'a restaurant bill or receipt',
+    'piece:stethoscope': 'a doctor\'s stethoscope',
+    'piece:telephone': 'an old desk telephone',
+    'piece:thumbs': 'a thumbs-up hand',
+    'piece:watch': 'a wristwatch',
+    'clip:nurse-veo': 'a nurse receiving a small gift from a patient (tipping only)',
+    'clip:tip-veo': 'a hand leaving a tip on a restaurant table (tipping only)',
+    'clip:servant-veo': 'a servant in old-fashioned livery being handed coins (tipping only)',
+  }
+
   // Everything a script may already use: approved or pending library entries.
   async function knownAssets() {
     const lib = await library.statuses()
@@ -88,7 +109,7 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
     const theme = topic.theme
     const entries = [...known].map((k) => {
       const r = lib[k]
-      return { k, theme: r?.theme || null, desc: r?.description || '' }
+      return { k, theme: r?.theme || null, desc: r?.description || SHIPPED_ABOUT[k] || '' }
     }).filter((e) => !theme || known.size <= 120 || !e.theme || e.theme === theme)
     entries.sort((a, b) => a.k.localeCompare(b.k))
     const names = entries.slice(0, 200).map((e) => `- ${e.k.replace(':', ': ')}${e.desc ? ' — ' + e.desc.slice(0, 90) : ''}`).join('\n') || '(empty)'

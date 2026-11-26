@@ -176,6 +176,7 @@ function silenceGaps(buf) {
 // sentences: [{ text, words }] in order. Returns, per sentence, its start time
 // and the start time of each of its words (seconds), plus how it was found.
 export async function align(buf, sentences) {
+  let sttError = null
   const flat = sentences.flatMap((s, si) => scriptWords(s.text).map((w) => ({ w, si })))
   try {
     const heard = await sttWords(buf)
@@ -191,7 +192,8 @@ export async function align(buf, sentences) {
     flat.forEach((x, k) => out[x.si].words.push(times[k]))
     return { method: 'speech-to-text', sentences: out.map((o) => ({ start: o.words[0], words: o.words })) }
   } catch (e) {
-    console.warn('voice: word timing unavailable, using pauses in the audio:', e.message.slice(0, 160))
+    sttError = e.message.slice(0, 300)
+    console.warn('voice: word timing unavailable, using pauses in the audio:', sttError)
   }
   const { gaps, duration } = silenceGaps(buf)
   const speechStart = gaps[0]?.start === 0 ? gaps[0].end : 0
@@ -216,6 +218,7 @@ export async function align(buf, sentences) {
   const ends = [...starts.slice(1), speechEnd]
   return {
     method: 'pauses',
+    why: sttError,
     sentences: sentences.map((s, k) => {
       const ws = scriptWords(s.text)
       const lensW = ws.map((w) => w.length + 1)

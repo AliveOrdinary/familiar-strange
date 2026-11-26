@@ -175,7 +175,7 @@ async function oneTakeBeats(raw, voiceName, question) {
   const buf = readFileSync(file)
   let al
   if (existsSync(timing)) al = JSON.parse(readFileSync(timing, 'utf8'))
-  else { al = await align(buf, flat); writeFileSync(timing, JSON.stringify(al)) }
+  if (!al || al.method !== 'speech-to-text') { al = await align(buf, flat); writeFileSync(timing, JSON.stringify(al)) } // retry: word timing may work now
   const { pcm, rate } = readWav(buf)
   const seconds = pcm.length / 2 / rate
   const beats = beatsFromTake(raw, flat, al, seconds, { fps: FPS, lead: LEAD_FRAMES, breath: BREATH_FRAMES, tail: question ? QUESTION_TAIL : 0 })
