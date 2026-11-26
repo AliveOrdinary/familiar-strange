@@ -30,6 +30,19 @@ const sentenceStarts = (beat) => {
   return out
 }
 // "at: 2" means "arrive as sentence 2 starts" (a hair early, so it lands on the word)
+// Paper foley: every move gets its sound (synthesized, see scripts/make_sfx.py).
+const Sfx = ({ name, at = 0, volume = 0.3 }) => (
+  <Sequence from={Math.max(0, Math.round(at))} layout="none">
+    <Audio src={staticFile(`sfx/${name}.wav`)} volume={volume} />
+  </Sequence>
+)
+// Typewriter keys for `n` characters starting at `at`, one key per drawing (two characters).
+const Keys = ({ n, at, every = 2, volume = 0.18 }) =>
+  Array.from({ length: Math.ceil(n / 2) }, (_, k) => <Sfx key={k} name="key" at={at + k * every} volume={volume} />)
+const LAND = 12 // frames for a piece to touch down (matches parts.jsx)
+const TURN = 2 // the turn beat: the sheet turns over to reveal it
+const T = 10 // frames for a camera pan or a sheet flip between beats
+
 const cue = (starts, at, fallback) => (at != null && starts[at] != null ? Math.max(0, starts[at] - 2) : fallback)
 
 // Captions sit on the torn strip: the one running text stream. Chunks are
@@ -73,8 +86,10 @@ const Caption = ({ say, speechFrames, captions, ink, opening = false }) => {
 const Label = ({ text, P, from = 22, top = 1030 }) => {
   const f = useCurrentFrame() - from
   if (f < 0) return null
-  const s = interpolate(f, [0, 7], [1.18, 1], { extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) })
-  const o = interpolate(f, [0, 4], [0, 1], { extrapolateRight: 'clamp' })
+  // slap down (one drawing held above the table), then the letters type in, two per drawing
+  const s = f < 2 ? 1.12 : 1
+  const o = 1
+  const shown = Math.min(text.length, Math.floor(f / 2) * 2 + 2)
   return (
     <div
       style={{
@@ -84,22 +99,44 @@ const Label = ({ text, P, from = 22, top = 1030 }) => {
         boxShadow: '0 10px 10px rgba(0,0,0,0.3)', clipPath: 'polygon(0.5% 3%, 99% 0, 100% 96%, 1% 100%)',
       }}
     >
-      {text}
+      <span>{text.slice(0, shown)}</span><span style={{ opacity: 0 }}>{text.slice(shown)}</span>
     </div>
   )
 }
 
-// Every beat drifts slowly toward the viewer so the frame is never fully
-// still, and is swept off to the left in its last few frames so the next beat
-// arrives onto a cleared table instead of a hard cut.
-const BeatMotion = ({ duration, last, children }) => {
-  const frame = useCurrentFrame()
-  const stepped = useSteppedFrame()
-  const scale = interpolate(frame, [0, duration], [1, 1.045])
-  const out = last ? 0 : interpolate(stepped, [duration - 9, duration], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.in(Easing.cubic) })
+// One beat is one sheet on the table. Between beats the camera pans: the next
+// sheet slides in over the last with a shadowed seam. Into the turn beat, the
+// sheet turns over instead, so what you thought is on the front and what is
+// really going on is on the back. Within a beat the camera pushes in slowly.
+const Page = ({ pre, dur, inKind, outKind, last, P, index, children }) => {
+  const lf = useCurrentFrame()
+  const st = Math.floor(lf / 2) * 2 // paper moves on twos
+  const ease = Easing.inOut(Easing.cubic)
+  let x = 0, angle = 0, hidden = false, seam = false
+  if (lf < pre) {
+    if (inKind === 'flip') {
+      if (st < pre / 2) hidden = true
+      else angle = -90 * (1 - ease((st - pre / 2) / (pre / 2)))
+    } else { x = W * (1 - ease(st / pre)); seam = true }
+  }
+  const outStart = pre + dur - T
+  if (!last && lf >= outStart) {
+    if (outKind === 'flip') {
+      if (st >= outStart + T / 2) hidden = true
+      else angle = 90 * ease((st - outStart) / (T / 2))
+    } else x = -W * ease((st - outStart) / T)
+  }
+  if (hidden) return null
+  const push = 1 + 0.03 * Math.max(0, Math.min(1, (lf - pre) / Math.max(1, dur)))
+  const edgeOn = Math.abs(angle) > 60
   return (
-    <AbsoluteFill style={{ transform: `translateX(${-out * W * 0.9}px) rotate(${-out * 4}deg) scale(${scale})`, transformOrigin: `50% ${H * 0.4}px` }}>
-      {children}
+    <AbsoluteFill style={{ transform: `translateX(${x}px) perspective(2600px) rotateY(${angle}deg)`, transformOrigin: '50% 50%' }}>
+      {seam ? <div style={{ position: 'absolute', top: 0, bottom: 0, left: -60, width: 60, background: 'linear-gradient(to left, rgba(0,0,0,0.32), rgba(0,0,0,0))' }} /> : null}
+      <AbsoluteFill style={{ background: P.ground, boxShadow: angle ? '0 0 0 3px rgba(255,255,255,0.35), 0 30px 60px rgba(0,0,0,0.45)' : 'none', clipPath: seam ? 'polygon(0.9% 0, 100% 0, 100% 100%, 0.3% 100%, 0.6% 82%, 0 64%, 1.2% 45%, 0.2% 27%, 0.8% 12%)' : 'none' }}>
+        <PaperGrain id={`pg${index}`} opacity={0.3} />
+      </AbsoluteFill>
+      <AbsoluteFill style={{ transform: `scale(${push})`, transformOrigin: `50% ${H * 0.4}px` }}>{children}</AbsoluteFill>
+      {edgeOn ? <AbsoluteFill style={{ background: P.paper, opacity: (Math.abs(angle) - 60) / 30 }} /> : null}
     </AbsoluteFill>
   )
 }
@@ -109,10 +146,11 @@ const BeatMotion = ({ duration, last, children }) => {
 const Cite = ({ text, P, from = 14 }) => {
   const f = useCurrentFrame() - from
   if (f < 0) return null
-  const o = interpolate(f, [0, 5], [0, 1], { extrapolateRight: 'clamp' })
+  const o = 1
+  const shown = Math.min(text.length, Math.floor(f / 2) * 3 + 1)
   return (
     <div style={{ position: 'absolute', top: 196, right: 70, opacity: o, transform: 'rotate(1.2deg)', fontFamily: MONO, fontWeight: 700, fontSize: 30, letterSpacing: 1, color: P.ink, background: P.paper, padding: '9px 18px 5px', boxShadow: '0 6px 8px rgba(0,0,0,0.25)' }}>
-      {text}
+      <span>{text.slice(0, shown)}</span><span style={{ opacity: 0 }}>{text.slice(shown)}</span>
     </div>
   )
 }
@@ -130,7 +168,7 @@ const Tag = ({ text, x, y, P, from }) => {
 // Loose shapes are placed from a seed, so every beat gets its own scatter
 // without anyone hand-placing them, and re-renders are identical.
 const Scatter = ({ seed, P, bounds }) => {
-  const kinds = ['triangle', 'circle', 'half', 'triangle', 'circle']
+  const kinds = ['triangle', 'circle', 'half']
   return kinds.map((kind, i) => {
     const r = (k) => random(`${seed}-${i}-${k}`)
     const edge = r('side') > 0.5
@@ -156,6 +194,7 @@ const Beat = ({ beat, index, P }) => {
       {main ? <DotPatch id={`dp${index}`} x={main.x + main.w * 0.55} y={main.y + main.h * 0.1} w={260} h={Math.min(420, main.h)} color={P.ink} rotate={-3} /> : null}
       <Scatter seed={`b${index}`} P={P} bounds={{ x0: 30, x1: 1050, y0: hasHeadline ? 620 : 330, y1: 1080 }} />
       {hasHeadline ? <Headline lines={beat.headline} top={230} paper={P.paper} ink={P.ink} from={opening ? 0 : cue(starts, beat.headlineAt, 3)} font={ANTON} instant={opening} /> : null}
+      {hasHeadline && !opening ? beat.headline.map((_, i) => <Sfx key={'hs' + i} name="slap" at={cue(starts, beat.headlineAt, 3) + i * 7} volume={0.3} />) : null}
       {layout.map((p, i) => {
         // In the opening shot, everything cued to the first sentence is already in place at frame 0.
         const first = opening && !specs[i]?.at
@@ -167,14 +206,20 @@ const Beat = ({ beat, index, P }) => {
             ) : (
               <Piece id={`${index}${p.name}`} src={specs[i]?.src || staticFile(`pieces/${p.name}.png`)} x={p.x} y={p.y} w={p.w} rotate={p.rotate} from={from} enter={p.enter} instant={first} />
             )}
+            {!first ? <Sfx name={i % 2 ? 'pat2' : 'pat'} at={from + LAND} volume={0.32} /> : null}
             {beat.tags?.[i] ? <Tag text={beat.tags[i]} x={p.x + p.w / 2} y={p.y + p.h + 26} P={P} from={from + 10} /> : null}
           </React.Fragment>
         )
       })}
       {labels.map((l, i) => (
-        <Label key={i} text={l.text} P={P} from={cue(starts, l.at, 22 + i * 12)} top={1142 - (labels.length - i) * 112} />
+        <React.Fragment key={i}>
+          <Label text={l.text} P={P} from={cue(starts, l.at, 22 + i * 12)} top={1142 - (labels.length - i) * 112} />
+          <Sfx name="slap" at={cue(starts, l.at, 22 + i * 12)} volume={0.22} />
+          <Keys n={l.text.length} at={cue(starts, l.at, 22 + i * 12) + 2} />
+        </React.Fragment>
       ))}
       {beat.cite ? <Cite text={beat.cite} P={P} from={cue(starts, beat.citeAt, 14)} /> : null}
+      {beat.cite ? <Keys n={Math.ceil(beat.cite.length / 1.5)} at={cue(starts, beat.citeAt, 14)} volume={0.14} /> : null}
     </>
   )
 }
@@ -201,18 +246,26 @@ export const CollageReel = ({ palette = 'tomato', number = 1, beats = [], questi
     <AbsoluteFill style={{ background: P.ground }}>
       <PaperGrain id="ground-grain" opacity={0.3} />
 
+      {beats.map((b, i) => {
+        const pre = i > 0 ? T : 0
+        const inKind = i === TURN ? 'flip' : 'pan'
+        const outKind = i + 1 === TURN ? 'flip' : 'pan'
+        return (
+          <Sequence key={i} from={startOf(beats, i) - pre} durationInFrames={beatFrames(b) + pre} layout="none">
+            <Page pre={pre} dur={beatFrames(b)} inKind={inKind} outKind={outKind} last={i === beats.length - 1} P={P} index={i}>
+              <Sequence from={pre} layout="none">
+                <Beat beat={b} index={i} P={P} />
+              </Sequence>
+            </Page>
+            {i > 0 ? <Sfx name={inKind === 'flip' ? 'flip' : 'slide'} at={inKind === 'flip' ? 0 : 1} volume={inKind === 'flip' ? 0.4 : 0.28} /> : null}
+          </Sequence>
+        )
+      })}
+
       <div style={{ position: 'absolute', top: 120, left: 80, right: 80, display: 'flex', justifyContent: 'space-between', fontFamily: MONO, fontWeight: 700, fontSize: 28, letterSpacing: 5, color: P.paper, opacity: 0.9 }}>
         <span>WHY WE DO THIS</span>
         <span>Nº {String(number).padStart(3, '0')}</span>
       </div>
-
-      {beats.map((b, i) => (
-        <Sequence key={i} from={startOf(beats, i)} durationInFrames={beatFrames(b)} layout="none">
-          <BeatMotion duration={beatFrames(b)} last={i === beats.length - 1}>
-            <Beat beat={b} index={i} P={P} />
-          </BeatMotion>
-        </Sequence>
-      ))}
 
       {/* strip + captions stay put for the whole reel */}
       <TornStrip top={STRIP_TOP} height={STRIP_H} color={P.paper} />
