@@ -241,10 +241,18 @@ export function beatsFromTake(raw, flat, al, seconds, { fps = 30, lead = 6, brea
     const to = bi < raw.length - 1 ? starts[bi + 1] : endFrame + breath + tail
     const sentenceStarts = []
     const captions = []
+    const words = [] // every displayed word with the frame it is spoken (for type-led templates)
     flat.forEach((x, k) => {
       if (x.bi !== bi) return
       const s = al.sentences[k]
+      const si = sentenceStarts.length
       sentenceStarts.push(Math.max(0, f(s.start) - from))
+      let wi = 0
+      for (const token of x.text.match(/\S+/g) || []) {
+        const t = s.words[Math.min(wi, s.words.length - 1)] ?? s.start
+        words.push({ text: token, s: si, from: Math.max(0, f(t) - from) })
+        if (scriptWords(token).length) wi++
+      }
       let w = 0
       for (const p of captionPhrases(x.text)) {
         const t = s.words[Math.min(w, s.words.length - 1)] ?? s.start
@@ -253,6 +261,6 @@ export function beatsFromTake(raw, flat, al, seconds, { fps = 30, lead = 6, brea
       }
     })
     const speechEnd = bi < raw.length - 1 ? starts[bi + 1] : endFrame
-    return { ...b, say: stripPauses(b.say), clips: [], captions, sentenceStarts, speechFrames: speechEnd - from, durationInFrames: to - from }
+    return { ...b, say: stripPauses(b.say), clips: [], captions, words, sentenceStarts, speechFrames: speechEnd - from, durationInFrames: to - from }
   })
 }

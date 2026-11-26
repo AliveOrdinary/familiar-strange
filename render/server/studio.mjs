@@ -350,6 +350,16 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
       return res.status(out.error ? 409 : 202).json(out)
     }
 
+    // The look: 'collage' (cut paper) or 'type' (type-led). Re-renders.
+    if (action === 'format') {
+      const format = req.body?.format === 'type' ? 'type' : 'collage'
+      if (!reel.script) return res.status(409).json({ error: 'There is no script yet' })
+      await setReel(id, { script: { ...reel.script, format } })
+      if (!['script_approved', 'video_review', 'error', 'published'].includes(reel.status)) return res.json({ ok: true, format })
+      const out = enqueue(id)
+      return res.status(out.error ? 409 : 202).json({ ...out, format })
+    }
+
     if (action === 'restore') {
       await setReel(id, { status: reel.video_url ? 'video_review' : reel.script ? 'script_review' : 'error' })
       return res.json({ ok: true })

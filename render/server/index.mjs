@@ -217,7 +217,8 @@ async function runJob(reelId, voice) {
     question,
     voiceover,
   }
-  const comp = await selectComposition({ serveUrl, id: 'CollageReel', inputProps })
+  const compositionId = reel.script.format === 'type' ? 'TypeReel' : 'CollageReel'
+  const comp = await selectComposition({ serveUrl, id: compositionId, inputProps })
   const outPath = join(PUBLIC_DIR, 'out', `${reelId}.mp4`)
   mkdirSync(dirname(outPath), { recursive: true })
   // crf 26 keeps a 45s reel near 10 MB, under Telegram's 20 MB send-by-link cap

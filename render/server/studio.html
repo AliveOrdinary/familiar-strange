@@ -70,6 +70,12 @@ const post = async (url, body) => {
 let flashTimer
 const flash = (msg, bad) => { const f = $('#flash'); clearTimeout(flashTimer); f.textContent = msg; f.className = bad ? 'bad' : ''; f.style.display = msg ? 'block' : 'none'; if (msg) flashTimer = setTimeout(() => (f.style.display = 'none'), bad ? 9000 : 4500) }
 const wordCount = (s) => String(s || '').replace(/\[[\d.]+\]/g, '').split(/\s+/).filter(Boolean).length
+// Which look this reel renders in; switching re-renders it.
+const styleRow = (r) => {
+  const f = r.script?.format === 'type' ? 'type' : 'collage'
+  const b = (k, label) => f === k ? `<button class="ghost" disabled>${label} ✓</button>` : `<button class="ghost" data-fmt="${k}">${label}</button>`
+  return `<div class="stack"><h2 style="margin:6px 0 0">Look</h2><p class="note">Collage is cut paper. Type is big words on cream paper, revealed as they're spoken. Switching re-renders the video.</p><div class="row fill">${b('collage', 'Collage')}${b('type', 'Type')}</div></div>`
+}
 // What a first-time listener came away with (a flag only; you decide).
 const listenBox = (sc, review) => {
   const l = sc.listener
@@ -205,15 +211,16 @@ function reelView(r) {
     else if (r.status === 'error') body = `<p class="note err">${esc(r.error || 'The render failed.')}</p><button class="wide" data-a="render">Try again</button>`
     else if (hasVideo) body = `<video class="player" src="${esc(r.video_url)}" controls playsinline preload="metadata"></video>
       <a class="btn wide" href="/reels/${r.id}/download">Download video (${esc(r.duration_s)}s)</a>
-      <div class="row fill"><button class="ghost" data-tab="post">Caption and posting</button><button class="ghost" data-a="render">Render again</button></div>`
-    else body = `<button class="wide" data-a="render">Render video</button>`
+      <div class="row fill"><button class="ghost" data-tab="post">Caption and posting</button><button class="ghost" data-a="render">Render again</button></div>
+      ${styleRow(r)}`
+    else body = `<button class="wide" data-a="render">Render video</button>${styleRow(r)}`
   }
 
   if (cur === 'post') {
     body = `<a class="btn wide" href="/reels/${r.id}/download">Download video (${esc(r.duration_s)}s)</a>
       ${pinQ(r) ? `<div class="stack"><h2 style="margin:6px 0 0">Pin this as your first comment</h2><textarea class="cap" data-pin readonly style="min-height:70px">${esc(pinQ(r))}</textarea><button class="ghost wide" data-g="copypin">Copy comment</button></div>` : ''}
       <div class="stack"><h2 style="margin:6px 0 0">Caption</h2><textarea class="cap" data-cap readonly>${esc(r.caption || '')}</textarea><button class="ghost wide" data-g="copy">Copy caption</button></div>
-      ${r.status === 'published' ? '<p class="note">Marked as posted.</p>' : '<button class="wide" data-a="posted">Mark as posted</button>'}`
+      ${r.status === 'published' ? `<p class="note">Marked as posted.</p>${styleRow(r)}<p class="note">Re-rendering a posted reel moves it back to “Video ready”; mark it as posted again after.</p>` : '<button class="wide" data-a="posted">Mark as posted</button>'}`
   }
 
   return `<div><a class="back" href="#/">‹ All reels</a><h1 class="title">${esc(r.title || 'Untitled')}</h1></div>${bar}<div class="panel" data-id="${r.id}">${body}</div>${['published', 'rejected'].includes(r.status) ? '' : drop}`
@@ -316,6 +323,7 @@ document.addEventListener('click', (e) => {
     if (g === 'refill') return act(() => post('/bank/refill'), 'Claude is researching new questions; this takes a few minutes.')
     if (g === 'approveall') { const r = D.reels.find((x) => x.id === id); return act(async () => { for (const a of r.assets.filter((x) => x.status === 'pending' && x.id)) await post(`/library/${a.id}/approve`) }, 'Approved.') }
   }
+  if (b.dataset.fmt) { b.disabled = true; return act(() => post(`/reels/${route()}/format`, { format: b.dataset.fmt }), 'Re-rendering in the new look; about 90 seconds.') }
   if (b.dataset.hook != null && b.dataset.hook !== '') { b.disabled = true; return act(() => post(`/reels/${route()}/hook`, { index: Number(b.dataset.hook) }), 'Hook swapped.') }
   if (b.dataset.toss) { const it = D.review.items[0]; tossFor = null; D.review.items.shift(); paint(true); return act(() => post(`/library/${it.id}/toss`, { reason: b.dataset.toss })) }
   if (b.dataset.b) { b.disabled = true; return act(() => post(`/bank/${b.closest('[data-q]').dataset.q}/${b.dataset.b}`)) }

@@ -3,6 +3,7 @@ import { Composition } from 'remotion'
 import { FPS, W, H } from './theme'
 import { WhyReel } from './WhyReel'
 import { CollageReel, beatFrames } from './collage/CollageReel'
+import { TypeReel, typeBeatFrames } from './type/TypeReel'
 import { tipping } from './collage/scripts/tipping'
 import { leftOnRead } from './collage/scripts/leftOnRead'
 
@@ -71,6 +72,16 @@ export const RemotionRoot = () => (
     id="CollageReel"
     component={CollageReel}
     calculateMetadata={({ props }) => ({ durationInFrames: props.beats.reduce((n, x) => n + beatFrames(x), 0) + 30 })}
+    defaultProps={tipping}
+    fps={FPS}
+    width={W}
+    height={H}
+    durationInFrames={900}
+  />
+  <Composition
+    id="TypeReel"
+    component={TypeReel}
+    calculateMetadata={({ props }) => ({ durationInFrames: props.beats.reduce((n, x) => n + typeBeatFrames(x), 0) + 30 })}
     defaultProps={tipping}
     fps={FPS}
     width={W}
