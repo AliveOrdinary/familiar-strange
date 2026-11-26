@@ -57,9 +57,10 @@ function keyWords(beat) {
 
 const Word = ({ text, from, accent, color, instant }) => {
   const f = useCurrentFrame()
-  const p = instant ? 1 : interpolate(f, [from - 2, from + 5], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: ease })
+  // a word appears as it is said, never before
+  const p = instant ? 1 : interpolate(f, [from, from + 5], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: ease })
   return (
-    <span style={{ display: 'inline-block', opacity: 0.12 + 0.88 * p, transform: `translateY(${(1 - p) * 14}px)`, color: accent ? color : INK, fontStyle: accent ? 'italic' : 'normal', marginRight: '0.24em' }}>
+    <span style={{ display: 'inline-block', opacity: p, transform: `translateY(${(1 - p) * 14}px)`, color: accent ? color : INK, fontStyle: accent ? 'italic' : 'normal', marginRight: '0.24em' }}>
       {text}
     </span>
   )

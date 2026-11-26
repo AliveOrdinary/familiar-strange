@@ -257,7 +257,6 @@ export const CollageReel = ({ palette = 'tomato', number = 1, beats = [], questi
                 <Beat beat={b} index={i} P={P} />
               </Sequence>
             </Page>
-            {i > 0 ? <Sfx name={inKind === 'flip' ? 'flip' : 'slide'} at={inKind === 'flip' ? 0 : 1} volume={inKind === 'flip' ? 0.4 : 0.28} /> : null}
           </Sequence>
         )
       })}
