@@ -386,4 +386,21 @@ app.post('/voice/sample', async (req, res) => {
   }
 })
 
-app.listen(PORT, () => console.log(`Render server on :${PORT}`))
+app.listen(PORT, () => {
+  console.log(`Render server on :${PORT}`)
+  resumeInterrupted()
+})
+
+// A redeploy restarts the container and kills any render in progress, which
+// would leave its reel saying "rendering" forever. Queue those again.
+async function resumeInterrupted() {
+  try {
+    const { data } = await supabase.from('reels').select('id').eq('status', 'rendering')
+    for (const r of data || []) {
+      console.log(`resuming interrupted render of ${r.id}`)
+      enqueue(r.id)
+    }
+  } catch (e) {
+    console.warn('Could not check for interrupted renders:', e.message)
+  }
+}
