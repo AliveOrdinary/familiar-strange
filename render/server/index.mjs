@@ -256,7 +256,7 @@ async function runJob(reelId, voice) {
 
   const duration = comp.durationInFrames / FPS
   await update(reelId, { status: 'video_review', video_url: pub.publicUrl, duration_s: duration.toFixed(1) })
-  pruneCache(ttsDir, 30)
+  pruneCache(join(PUBLIC_DIR, 'tts'), 30)
   console.log(`✔ ${reelId} → ${pub.publicUrl} (${duration.toFixed(1)}s)`)
   return { video_url: pub.publicUrl, duration_s: duration }
 }
