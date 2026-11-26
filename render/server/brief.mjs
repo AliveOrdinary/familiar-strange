@@ -369,7 +369,14 @@ export function captionWithQuestion(caption, question) {
   const c = String(caption || '').split('\n').filter((l) => !q || l.trim() !== q).join('\n').replace(/\n{3,}/g, '\n\n').trim()
   if (!q) return c
   const i = c.search(/\n\s*Sources:/i)
-  return i === -1 ? `${c}\n\n${q}` : `${c.slice(0, i).trim()}\n\n${q}\n\n${c.slice(i).trim()}`
+  // if the body already ends on its own (differently worded) question, ours replaces it
+  const dropEndQuestion = (body) => {
+    const paras = body.trim().split(/\n\s*\n/)
+    const last = paras[paras.length - 1]?.trim() || ''
+    if (paras.length > 1 && last.endsWith('?') && last.length < 200) paras.pop()
+    return paras.join('\n\n').trim()
+  }
+  return i === -1 ? `${dropEndQuestion(c)}\n\n${q}` : `${dropEndQuestion(c.slice(0, i))}\n\n${q}\n\n${c.slice(i).trim()}`
 }
 
 export const EDITOR_SYSTEM = `${SHOW}
