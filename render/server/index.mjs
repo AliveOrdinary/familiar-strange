@@ -21,7 +21,7 @@ import { parseFile } from 'music-metadata'
 import { synthesize, ttsCacheKey, listVoices } from './tts.mjs'
 import { parseSay, stripPauses, captionPhrases } from '../shared/captions.js'
 import { mountLibrary } from './library.mjs'
-import { mountStudio } from './studio.mjs'
+import { mountStudio, renderSig } from './studio.mjs'
 import { mountCatalog } from './catalog.mjs'
 import { speak, align, oneTakeKey, readWav, beatsFromTake, GEMINI_VOICES } from './voice.mjs'
 import { vertexConfigured } from './vertex.mjs'
@@ -237,17 +237,20 @@ async function runJob(reelId, voice) {
 
   // 4. Upload. A per-render suffix gives a fresh URL every time, so the CDN
   //    can never serve a stale cut during review.
-  const objectPath = `${reelId}/r${reel.revision}-${Date.now()}.mp4`
+  const format = reel.script.format === 'type' ? 'type' : 'collage'
+  const objectPath = `${reelId}/${format}-r${reel.revision}-${Date.now()}.mp4`
   const { error: upErr } = await supabase.storage
     .from('reels')
     .upload(objectPath, readFileSync(outPath), { contentType: 'video/mp4', upsert: true, cacheControl: '300' })
   if (upErr) throw new Error('Storage upload failed: ' + upErr.message)
   const { data: pub } = supabase.storage.from('reels').getPublicUrl(objectPath)
 
-  // Drop earlier cuts of this reel so the bucket holds one file per reel.
+  // Drop earlier cuts of this reel, keeping the latest video of the other look.
+  const { data: fresh } = await supabase.from('reels').select('videos').eq('id', reelId).maybeSingle()
+  const otherUrl = Object.entries(fresh?.videos || {}).filter(([k]) => k !== format).map(([, v]) => v?.url).find(Boolean)
   try {
     const { data: existing } = await supabase.storage.from('reels').list(reelId, { limit: 100 })
-    const stale = (existing || []).map((f) => `${reelId}/${f.name}`).filter((p) => p !== objectPath)
+    const stale = (existing || []).map((f) => `${reelId}/${f.name}`).filter((p) => p !== objectPath && !(otherUrl && otherUrl.endsWith('/' + p)))
     if (stale.length) await supabase.storage.from('reels').remove(stale)
   } catch (e) {
     console.warn('Could not prune old cuts:', e.message)
@@ -255,7 +258,8 @@ async function runJob(reelId, voice) {
   rmSync(outPath, { force: true })
 
   const duration = comp.durationInFrames / FPS
-  await update(reelId, { status: 'video_review', video_url: pub.publicUrl, duration_s: duration.toFixed(1) })
+  const videos = { ...(fresh?.videos || {}), [format]: { url: pub.publicUrl, duration_s: duration.toFixed(1), sig: renderSig(reel.script, voice ? { provider: 'kokoro', voice } : voiceSetting) } }
+  await update(reelId, { status: 'video_review', video_url: pub.publicUrl, duration_s: duration.toFixed(1), videos })
   pruneCache(join(PUBLIC_DIR, 'tts'), 30)
   console.log(`✔ ${reelId} → ${pub.publicUrl} (${duration.toFixed(1)}s)`)
   return { video_url: pub.publicUrl, duration_s: duration }

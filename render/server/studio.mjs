@@ -11,6 +11,7 @@
 // POST /reels/:id/render | posted | reject
 // POST /pipeline/daily              for a scheduler: draft the next question if nothing is waiting
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { research, claudeConfigured } from './claude.mjs'
@@ -19,6 +20,11 @@ import { coldListen } from './listener.mjs'
 import { BANK_SYSTEM, BANK_TOOL, SCRIPT_SYSTEM, SCRIPT_TOOL, EDITOR_SYSTEM, EDITOR_TOOL, checkScript, toRenderScript, captionWithQuestion } from './brief.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
+
+// What a rendered video depends on: the script's beats, the comment question
+// and the narrator voice. Same signature → the stored video is still current.
+export const renderSig = (script, voice) =>
+  createHash('sha1').update(JSON.stringify([script?.beats || [], script?.comment_question || '', voice || null])).digest('hex').slice(0, 12)
 
 export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
   const jobs = {} // key → { state: 'running' | 'error', message }
@@ -259,7 +265,7 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
   app.get('/studio.json', async (_req, res) => {
     const [{ data: bank }, { data: reels }, { lib }, { data: voiceRow }] = await Promise.all([
       supabase.from('topics').select('*').in('status', ['proposed', 'approved']).order('score', { ascending: false, nullsFirst: false }).limit(100),
-      supabase.from('reels').select('id,topic_id,status,script,caption,factcheck,review_notes,video_url,duration_s,error,revision,updated_at').order('updated_at', { ascending: false }).limit(40),
+      supabase.from('reels').select('id,topic_id,status,script,caption,factcheck,review_notes,video_url,duration_s,videos,error,revision,updated_at').order('updated_at', { ascending: false }).limit(40),
       knownAssets(),
       supabase.from('settings').select('value').eq('key', 'voice').maybeSingle(),
     ])
@@ -375,6 +381,13 @@ export function mountStudio(app, { supabase, publicDir, library, enqueue }) {
     if (action === 'format') {
       const format = req.body?.format === 'type' ? 'type' : 'collage'
       if (!reel.script) return res.status(409).json({ error: 'There is no script yet' })
+      // Already rendered in this look, and nothing has changed since: just show it.
+      const { data: vrow } = await supabase.from('settings').select('value').eq('key', 'voice').maybeSingle()
+      const kept = reel.videos?.[format]
+      if (kept?.url && kept.sig === renderSig(reel.script, vrow?.value)) {
+        await setReel(id, { script: { ...reel.script, format }, video_url: kept.url, duration_s: kept.duration_s, ...(reel.status === 'error' ? { status: 'video_review', error: null } : {}) })
+        return res.json({ ok: true, format, instant: true })
+      }
       await setReel(id, { script: { ...reel.script, format } })
       if (!['script_approved', 'video_review', 'error', 'published'].includes(reel.status)) return res.json({ ok: true, format })
       const out = enqueue(id)

@@ -73,8 +73,8 @@ const wordCount = (s) => String(s || '').replace(/\[[\d.]+\]/g, '').split(/\s+/)
 // Which look this reel renders in; switching re-renders it.
 const styleRow = (r) => {
   const f = r.script?.format === 'type' ? 'type' : 'collage'
-  const b = (k, label) => f === k ? `<button class="ghost" disabled>${label} ✓</button>` : `<button class="ghost" data-fmt="${k}">${label}</button>`
-  return `<div class="stack"><h2 style="margin:6px 0 0">Look</h2><p class="note">Collage is cut paper. Type is big words on cream paper, revealed as they're spoken. Switching re-renders the video.</p><div class="row fill">${b('collage', 'Collage')}${b('type', 'Type')}</div></div>`
+  const b = (k, label) => f === k ? `<button class="ghost" disabled>${label} ✓</button>` : `<button class="ghost" data-fmt="${k}">${label}${r.videos?.[k] ? ' · saved' : ''}</button>`
+  return `<div class="stack"><h2 style="margin:6px 0 0">Look</h2><p class="note">Collage is cut paper. Type is big words on cream paper, revealed as they're spoken. Each look's video is kept, so switching back is instant unless the script or voice changed since.</p><div class="row fill">${b('collage', 'Collage')}${b('type', 'Type')}</div></div>`
 }
 // What a first-time listener came away with (a flag only; you decide).
 const listenBox = (sc, review) => {
@@ -323,7 +323,7 @@ document.addEventListener('click', (e) => {
     if (g === 'refill') return act(() => post('/bank/refill'), 'Claude is researching new questions; this takes a few minutes.')
     if (g === 'approveall') { const r = D.reels.find((x) => x.id === id); return act(async () => { for (const a of r.assets.filter((x) => x.status === 'pending' && x.id)) await post(`/library/${a.id}/approve`) }, 'Approved.') }
   }
-  if (b.dataset.fmt) { b.disabled = true; return act(() => post(`/reels/${route()}/format`, { format: b.dataset.fmt }), 'Re-rendering in the new look; about 90 seconds.') }
+  if (b.dataset.fmt) { b.disabled = true; let instant = false; return act(async () => { instant = (await post(`/reels/${route()}/format`, { format: b.dataset.fmt })).instant; flash(instant ? 'Switched.' : 'Rendering in this look; about 90 seconds.') }) }
   if (b.dataset.hook != null && b.dataset.hook !== '') { b.disabled = true; return act(() => post(`/reels/${route()}/hook`, { index: Number(b.dataset.hook) }), 'Hook swapped.') }
   if (b.dataset.toss) { const it = D.review.items[0]; tossFor = null; D.review.items.shift(); paint(true); return act(() => post(`/library/${it.id}/toss`, { reason: b.dataset.toss })) }
   if (b.dataset.b) { b.disabled = true; return act(() => post(`/bank/${b.closest('[data-q]').dataset.q}/${b.dataset.b}`)) }
